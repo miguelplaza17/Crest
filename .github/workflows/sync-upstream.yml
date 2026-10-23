@@ -36,16 +36,9 @@ jobs:
   sync:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      HAS_SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN != '' }}
     steps:
-      - name: Conferir o token
-        env:
-          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
-        run: |
-          if [ -z "$SYNC_TOKEN" ]; then
-            echo "::error::Falta o secret UPSTREAM_SYNC_TOKEN (fine-grained token com Contents e Workflows em Read and write)."
-            exit 1
-          fi
-
       - name: Baixar o original
         run: |
           if ! git ls-remote --heads "https://github.com/$UPSTREAM.git" >/dev/null 2>&1; then
@@ -55,6 +48,7 @@ jobs:
           git clone --quiet --mirror "https://github.com/$UPSTREAM.git" upstream.git
 
       - name: Enviar branches e tags para o fork
+        if: env.HAS_SYNC_TOKEN == 'true'
         env:
           SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
         run: |
@@ -115,3 +109,9 @@ jobs:
             gh release create "$tag" assets/* --repo "$GITHUB_REPOSITORY" \
               --verify-tag --title "$name" --notes-file notes.md --latest=false
           done
+
+      - name: Avisar se falta o token
+        if: env.HAS_SYNC_TOKEN != 'true'
+        run: |
+          echo "::error::Falta o secret UPSTREAM_SYNC_TOKEN (fine-grained token deste repositório com Contents e Workflows em Read and write). As releases foram copiadas, mas o código não foi sincronizado."
+          exit 1
