@@ -1,0 +1,117 @@
+# Mantém este fork como cópia de segurança de pauljoda/Crest.
+#
+# - Traz todos os branches e tags do original, sem nunca apagar nem
+#   sobrescrever nada que já esteja aqui (sem --force, sem --prune).
+# - Copia as releases estáveis (DMG, checksum, dSYM) para as releases do fork.
+# - Mantém desativados todos os outros workflows (os do Crest original).
+#
+# Precisa do secret UPSTREAM_SYNC_TOKEN: um fine-grained token só deste
+# repositório, com Contents e Workflows em "Read and write". O GITHUB_TOKEN
+# não pode enviar commits que mexem em .github/workflows.
+#
+# Não usa nenhuma action de propósito: as Actions deste fork estão restritas
+# para que os workflows do original falhem antes de rodar qualquer coisa.
+
+name: Sincronizar com o original
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
+env:
+  UPSTREAM: pauljoda/Crest
+  SELF_WORKFLOW: .github/workflows/sync-upstream.yml
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Conferir o token
+        env:
+          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+        run: |
+          if [ -z "$SYNC_TOKEN" ]; then
+            echo "::error::Falta o secret UPSTREAM_SYNC_TOKEN (fine-grained token com Contents e Workflows em Read and write)."
+            exit 1
+          fi
+
+      - name: Baixar o original
+        run: |
+          if ! git ls-remote --heads "https://github.com/$UPSTREAM.git" >/dev/null 2>&1; then
+            echo "::error::O repositório original $UPSTREAM não está acessível (apagado ou privado?). A cópia deste fork continua intacta."
+            exit 1
+          fi
+          git clone --quiet --mirror "https://github.com/$UPSTREAM.git" upstream.git
+
+      - name: Enviar branches e tags para o fork
+        env:
+          SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+        run: |
+          cd upstream.git
+          git remote add fork "https://x-access-token:${SYNC_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          backup_branch="$(gh api "repos/$GITHUB_REPOSITORY" --jq .default_branch)"
+
+          rejected=""
+          for ref in $(git for-each-ref --format='%(refname:lstrip=2)' refs/heads); do
+            # Nunca toca no branch que guarda este workflow.
+            [ "$ref" = "$backup_branch" ] && continue
+            if ! git push --quiet fork "refs/heads/$ref:refs/heads/$ref"; then
+              rejected="$rejected $ref"
+            fi
+          done
+
+          # Tags novas entram; tags que já existem aqui nunca são trocadas.
+          git push --quiet fork --tags || echo "::warning::Alguma tag do original difere da que já está aqui; a daqui foi mantida."
+
+          if [ -n "$rejected" ]; then
+            echo "::warning::O original reescreveu o histórico destes branches; a versão antiga foi mantida aqui:$rejected"
+          fi
+
+      - name: Manter os outros workflows desativados
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/workflows" \
+            --jq ".workflows[] | select(.path != \"$SELF_WORKFLOW\" and .state == \"active\") | .id" |
+          while read -r id; do
+            gh api -X PUT "repos/$GITHUB_REPOSITORY/actions/workflows/$id/disable"
+            echo "Desativado: workflow $id"
+          done
+
+          self_id="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows" --jq ".workflows[] | select(.path == \"$SELF_WORKFLOW\") | .id")"
+          for status in queued in_progress waiting pending requested; do
+            gh api "repos/$GITHUB_REPOSITORY/actions/runs?status=$status" \
+              --jq ".workflow_runs[] | select(.workflow_id != $self_id) | .id" |
+            while read -r run; do
+              gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$run/cancel" >/dev/null || true
+              echo "Cancelado: run $run"
+            done
+          done
+
+      - name: Copiar as releases estáveis
+        run: |
+          have="$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases" --jq '.[].tag_name')"
+          gh api --paginate "repos/$UPSTREAM/releases" \
+            --jq '.[] | select(.prerelease == false and .draft == false) | .tag_name' |
+          while read -r tag; do
+            if printf '%s\n' "$have" | grep -qxF "$tag"; then
+              continue
+            fi
+            echo "Copiando $tag"
+            rm -rf assets && mkdir assets
+            gh release download "$tag" --repo "$UPSTREAM" --dir assets
+            gh api "repos/$UPSTREAM/releases/tags/$tag" --jq .body > notes.md
+            printf '\n\n---\nCópia de segurança de https://github.com/%s/releases/tag/%s\n' "$UPSTREAM" "$tag" >> notes.md
+            name="$(gh api "repos/$UPSTREAM/releases/tags/$tag" --jq '.name // .tag_name')"
+            gh release create "$tag" assets/* --repo "$GITHUB_REPOSITORY" \
+              --verify-tag --title "$name" --notes-file notes.md --latest=false
+          done
