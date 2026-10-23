@@ -9,7 +9,9 @@ import os
 from pathlib import Path
 import platform
 import shutil
+import subprocess
 import sys
+import urllib.error
 
 from chromium_fork import (ENGINE, REPO, Workspace, certificate_trust, exclusive_workspace, prepare_update,
                            read_json, release_version, run, select_update, sha256,
@@ -93,10 +95,14 @@ def main():
         print(json.dumps(result, indent=2))
         return
     if args.command == "check-trust":
-        trust = certificate_trust(workspace.lock["chromium"]["version"], datetime.datetime.now(datetime.UTC))
-        print(json.dumps(trust, indent=2))
-        if args.issue_repository:
-            sync_renewal_issue(args.issue_repository, trust)
+        # A monitor: an unreachable service is reported, never a failed run.
+        try:
+            trust = certificate_trust(workspace.lock["chromium"]["version"], datetime.datetime.now(datetime.UTC))
+            print(json.dumps(trust, indent=2))
+            if args.issue_repository:
+                sync_renewal_issue(args.issue_repository, trust)
+        except (urllib.error.URLError, TimeoutError, subprocess.CalledProcessError) as error:
+            print(f"::warning title=Certificate trust::Check unavailable: {error}")
         return
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         parser.error("Engine preparation and builds require an Apple Silicon Mac")
