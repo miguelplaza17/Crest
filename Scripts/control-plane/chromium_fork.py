@@ -42,9 +42,9 @@ CT_RENEWAL_NOTICE = datetime.timedelta(days=14)
 CT_RENEWAL_ISSUE = "Update the Chromium engine before Certificate Transparency lapses"
 
 
-def run(*args, cwd=None, capture=False):
+def run(*args, cwd=None, capture=False, timeout=None):
     return subprocess.run([str(arg) for arg in args], cwd=cwd, check=True,
-                          text=True, capture_output=capture).stdout
+                          text=True, capture_output=capture, timeout=timeout).stdout
 
 
 def sha256(path):
@@ -384,10 +384,11 @@ def renewal_issue_change(trust, open_issues):
 
 def sync_renewal_issue(repository, trust):
     issues = json.loads(run("gh", "issue", "list", "--repo", repository, "--state", "open", "--limit", "1000",
-                            "--search", f'in:title "{CT_RENEWAL_ISSUE}"', "--json", "number,title", capture=True))
+                            "--search", f'in:title "{CT_RENEWAL_ISSUE}"', "--json", "number,title", capture=True,
+                            timeout=60))
     change = renewal_issue_change(trust, [issue["number"] for issue in issues if issue["title"] == CT_RENEWAL_ISSUE])
     if change:
-        run("gh", "issue", change[0], "--repo", repository, *change[1])
+        run("gh", "issue", change[0], "--repo", repository, *change[1], timeout=60)
 
 
 def download_profile(root, inputs):

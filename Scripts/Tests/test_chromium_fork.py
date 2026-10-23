@@ -10,8 +10,8 @@ import unittest
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "control-plane"
 sys.path.insert(0, str(SCRIPTS))
-from chromium_fork import (certificate_trust, exclusive_workspace, renewal_issue_change, prune_sources, refresh_host_inputs, restore_host_base, select_update,
-                           sha256, validate_workspace)
+from chromium_fork import (certificate_trust, exclusive_workspace, prune_sources, refresh_host_inputs,
+                           renewal_issue_change, restore_host_base, select_update, sha256, validate_workspace)
 from chromium_artifact import release_ready
 from chromium_engine import asset_name
 
@@ -38,7 +38,6 @@ class UpstreamSelectionTests(unittest.TestCase):
         self.assertIsNone(select_update("152.0.7977.82-1.2", releases)["candidate"])
 
 
-
 class CertificateTrustTests(unittest.TestCase):
     def test_renewal_is_due_two_weeks_before_transparency_stops_being_enforced(self):
         files = {
@@ -48,10 +47,12 @@ class CertificateTrustTests(unittest.TestCase):
             ("main", "net/data/ssl/chrome_root_store/root_store.textproto"): "version_major: 43\n",
         }
         read = lambda ref, path: files[ref, path]
-        early = certificate_trust("155.0.8059.84", datetime.datetime(2026, 11, 15, 13, 35, 39, tzinfo=datetime.UTC), read)
+        early = certificate_trust("155.0.8059.84",
+                                  datetime.datetime(2026, 11, 15, 13, 35, 39, tzinfo=datetime.UTC), read)
         self.assertFalse(early["renewalDue"])
         self.assertEqual((early["rootStoreVersion"], early["upstreamRootStoreVersion"]), (39, 43))
-        due = certificate_trust("155.0.8059.84", datetime.datetime(2026, 11, 15, 13, 35, 40, tzinfo=datetime.UTC), read)
+        due = certificate_trust("155.0.8059.84",
+                                datetime.datetime(2026, 11, 15, 13, 35, 40, tzinfo=datetime.UTC), read)
         self.assertTrue(due["renewalDue"])
         self.assertEqual(due["transparencyEnforcedUntil"], "2026-11-29T13:35:40+00:00")
 
@@ -64,6 +65,7 @@ class CertificateTrustTests(unittest.TestCase):
         self.assertEqual(renewal_issue_change(renewed, [42])[:2], ("close", ("42", "--comment",
             "Chromium 156.0.8078.48 enforces Certificate Transparency until 2026-11-29.")))
         self.assertIsNone(renewal_issue_change(renewed, []))
+
 
 class WorkspaceTests(unittest.TestCase):
     def test_switching_host_revisions_accepts_an_exact_legacy_install_but_preserves_local_edits(self):

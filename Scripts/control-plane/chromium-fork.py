@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import http.client
 import json
 import os
 from pathlib import Path
@@ -11,7 +12,6 @@ import platform
 import shutil
 import subprocess
 import sys
-import urllib.error
 
 from chromium_fork import (ENGINE, REPO, Workspace, certificate_trust, exclusive_workspace, prepare_update,
                            read_json, release_version, run, select_update, sha256,
@@ -101,8 +101,8 @@ def main():
             print(json.dumps(trust, indent=2))
             if args.issue_repository:
                 sync_renewal_issue(args.issue_repository, trust)
-        except (urllib.error.URLError, TimeoutError, subprocess.CalledProcessError) as error:
-            print(f"::warning title=Certificate trust::Check unavailable: {error}")
+        except (OSError, http.client.HTTPException, subprocess.SubprocessError) as error:
+            print(f"::warning title=Certificate trust::Check unavailable: {type(error).__name__}: {error}")
         return
     if platform.system() != "Darwin" or platform.machine() != "arm64":
         parser.error("Engine preparation and builds require an Apple Silicon Mac")

@@ -243,6 +243,7 @@ jobs:
     # Certificate Transparency log list must be renewed by an engine update.
     # A public issue opens shortly before it lapses and closes once renewed.
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: read
       issues: write
