@@ -383,7 +383,7 @@ def renewal_issue_change(trust, open_issues):
 
 
 def sync_renewal_issue(repository, trust):
-    issues = json.loads(run("gh", "issue", "list", "--repo", repository, "--state", "open",
+    issues = json.loads(run("gh", "issue", "list", "--repo", repository, "--state", "open", "--limit", "1000",
                             "--search", f'in:title "{CT_RENEWAL_ISSUE}"', "--json", "number,title", capture=True))
     change = renewal_issue_change(trust, [issue["number"] for issue in issues if issue["title"] == CT_RENEWAL_ISSUE])
     if change:
