@@ -4509,6 +4509,10 @@
     "sync-record-envelope": {
       "category": "internal",
       "message": "Read and write a sync record's envelope in one place."
+    },
+    "sync-merge-save-freeze": {
+      "category": "fixed",
+      "message": "Crest no longer freezes when an iCloud sync arrives while it’s saving a change, such as deleting a Space, moving or closing several tabs, or importing from another browser."
     }
   }
 }
