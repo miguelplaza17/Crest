@@ -7,10 +7,10 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <title>Crest</title>
         <item>
             <title>0.8.114</title>
-            <pubDate>Fri, 30 Oct 2026 21:38:02 +0000</pubDate>
+            <pubDate>Fri, 30 Oct 2026 22:21:28 +0000</pubDate>
             <link>https://crestbrowser.com/</link>
             <sparkle:channel>development</sparkle:channel>
-            <sparkle:version>1362</sparkle:version>
+            <sparkle:version>1435</sparkle:version>
             <sparkle:shortVersionString>0.8.114</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>26.1</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
@@ -24,11 +24,11 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
 
 Development builds contain the newest changes and may be less reliable than stable releases.
 
-[View all changes](https://github.com/pauljoda/Crest/compare/a6f0f0c35427c5cf9029a1f01bd47d20ea3b42a6...dcfc17b8790691a38ddf948af899bb6f9d723ac4) · [Download the installer](https://github.com/pauljoda/Crest/releases/download/development-0.8.114-2026-10-30-1362-r362.1/Installer-Crest-0.8.114-development-2026-10-30-dcfc17b-arm64.dmg)
+[View all changes](https://github.com/pauljoda/Crest/compare/dcfc17b8790691a38ddf948af899bb6f9d723ac4...77f8583849d4f108ba0c273b10bb912a6403bf99) · [Download the installer](https://github.com/pauljoda/Crest/releases/download/development-0.8.114-2026-10-30-1435-r435.1/Installer-Crest-0.8.114-development-2026-10-30-77f8583-arm64.dmg)
 
 [Browse Development releases](https://github.com/pauljoda/Crest/releases?q=prerelease%3Atrue+%22Development+builds%22)
 ]]></description>
-            <enclosure url="https://github.com/pauljoda/Crest/releases/download/development-0.8.114-2026-10-30-1362-r362.1/Installer-Crest-0.8.114-development-2026-10-30-dcfc17b-arm64.dmg" length="220020379" type="application/octet-stream" sparkle:edSignature="wjM3HZ3N1Rl7uruHl+wkyj/McLl3zpMGrD6kEaZv4R/i+mHA7Rj4XlPgaqmCYa4uExtha4mG/4PXcZfcBrZrCw=="/>
+            <enclosure url="https://github.com/pauljoda/Crest/releases/download/development-0.8.114-2026-10-30-1435-r435.1/Installer-Crest-0.8.114-development-2026-10-30-77f8583-arm64.dmg" length="220049051" type="application/octet-stream" sparkle:edSignature="74Y42W5iQj4mJditatv2YFl1ZZF/+m9NpfxJuRZ7MRLBJQjTzkSCWxrXaFMJAPNTQgiwdTrWycSE2TnHB0oBAg=="/>
         </item>
         <item>
             <title>0.6.484</title>
@@ -60,6 +60,6 @@ Development builds contain the newest changes and may be less reliable than stab
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: Kp6IF/90JmB3h8GWD+FXu6V8HbLSILwiU3Glu2WoUW+BoXL+dqq+emvhlSAh1mprMV52XkHvDJkiMEwn59ehDw==
+edSignature: Qt6Q/F7ICYxM1Cb19JTTh8XFwsDQoG7ztWf3cFk0HbHGF7YzeRxDtwQVIYN/fsYxodn3h0WiAfl4KQVNr4hMAw==
 length: 3943
 -->
