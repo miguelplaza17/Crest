@@ -32,7 +32,8 @@ struct MobileBrowserSpacePage: View {
     }
 
     private func content(_ listContext: BrowserSidebarListContext) -> some View {
-        VStack(spacing: 0) {
+        let (sharesPinsBefore, sharesPinsAfter) = (sharesPins(with: -1), sharesPins(with: 1))
+        return VStack(spacing: 0) {
             // The bounded pinned grid keeps its intrinsic height. Compressing
             // its wrapper when the keyboard appears lets fixed-height tiles
             // overflow upward into the Space picker.
@@ -41,6 +42,17 @@ struct MobileBrowserSpacePage: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, BrowserSidebarMetrics.layerInset)
                 .padding(.vertical, 10)
+                // The pinned tabs a neighbouring Space shows too stay still
+                // while the strip pages to it, and one of the two draws them.
+                // The pager's own scroll offset moves them, with no update.
+                .visualEffect { content, proxy in
+                    let offset = proxy.frame(in: .scrollView(axis: .horizontal)).minX
+                    let held = offset < 0 ? sharesPinsAfter : offset > 0 && sharesPinsBefore
+                    return
+                        content
+                        .offset(x: held ? -offset : 0)
+                        .opacity(held && abs(offset) > proxy.size.width / 2 ? 0 : 1)
+                }
 
             BrowserSpaceHeader(
                 space: space,
@@ -92,6 +104,15 @@ struct MobileBrowserSpacePage: View {
                 .pinned: tabPromotionNamespace, .saved: tabPromotionNamespace, .current: tabPromotionNamespace,
             ],
             select: selectTab, restoreSavedLocation: restoreSavedLocation)
+    }
+
+    /// Whether the Space `offset` places along the strip shows the same
+    /// pinned tabs as this one, its group sharing them.
+    private func sharesPins(with offset: Int) -> Bool {
+        let spaces = browser.availableSpaces
+        guard let index = spaces.firstIndex(where: { $0.id == space.id }), spaces.indices.contains(index + offset)
+        else { return false }
+        return spaces[index + offset].pinSource.id == space.pinSource.id
     }
 
     private var pageAccess: BrowserSidebarPageAccess {
