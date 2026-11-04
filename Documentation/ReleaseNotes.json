@@ -5065,6 +5065,14 @@
     "shortcuts-put-the-address-palette-away": {
       "category": "fixed",
       "message": "Pressing Command-L again closes the address field it opened, and another shortcut such as Command-S or Command-W closes the open address field or new tab prompt before it runs."
+    },
+    "popovers-read-on-their-own-surface": {
+      "category": "fixed",
+      "message": "Popovers such as the color and icon pickers and Site Controls stay readable whatever the Space’s text color, Crest’s appearance or the page behind them."
+    },
+    "space-color-grid-and-custom-hex": {
+      "category": "fixed",
+      "message": "The color grid in a Space’s appearance fills its rows without gaps, and typing a hex value in the Colors window no longer closes the color popover."
     }
   }
 }
