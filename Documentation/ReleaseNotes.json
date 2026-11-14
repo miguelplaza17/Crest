@@ -5453,6 +5453,10 @@
     "snappier-sidebar-slide": {
       "category": "improved",
       "message": "On Mac, the sidebar slides in and out a third faster by default. Choose its speed in Settings › Appearance › Sidebar slide time."
+    },
+    "restored-tab-back-redraws": {
+      "category": "fixed",
+      "message": "In a tab Crest reopened after a relaunch, going back on sites such as Reddit shows the earlier page again, instead of leaving the page you left on screen until a refresh."
     }
   }
 }
