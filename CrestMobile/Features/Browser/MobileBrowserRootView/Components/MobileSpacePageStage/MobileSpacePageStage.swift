@@ -3,6 +3,9 @@ import SwiftUI
 /// The regular-width page area as the sidebar's Space pager moves: the shown
 /// Space's card, and beside it the cards of the Spaces either side, sliding
 /// with the pager as the next Space's sidebar does, finger and release alike.
+/// With "Animate pages when switching Spaces" off or Reduce Motion on, the
+/// cards keep their place and the one the pager settles on fades in over the
+/// one it leaves instead, as on Mac.
 ///
 /// The shown card is the page area itself and keeps its identity whichever
 /// Space it shows, so a Space switch never builds it again. The others hold
@@ -28,6 +31,8 @@ struct MobileSpacePageStage<Shown: View>: View {
 
     @Environment(\.spacePagerPresentation) private var presentation
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @AppStorage(SpacePageMotionPreference.key)
+    private var animatesSpacePages = SpacePageMotionPreference.defaultValue
     let model: MobileBrowserRootModel
     let adjoinsSidebar: Bool
     let usesBorderlessPageFrame: Bool
@@ -97,8 +102,10 @@ struct MobileSpacePageStage<Shown: View>: View {
             shownSpaceID: shownSpaceID, shownPins: shownPins, slides: slides)
     }
 
-    /// Whether the cards slide with the pager.
-    private var slides: Bool { !reduceMotion }
+    /// Whether the cards slide with the pager, or keep their place and fade.
+    private var slides: Bool {
+        SpacePageMotionPreference.slides(animatesPages: animatesSpacePages, reduceMotion: reduceMotion)
+    }
 
     /// The pinned tab each unlocked Space shows, for those that show one.
     private var shownPins: [UUID: UUID] {

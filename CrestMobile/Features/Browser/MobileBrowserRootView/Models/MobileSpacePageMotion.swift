@@ -1,16 +1,17 @@
 import SwiftUI
 
 /// The touch host's half of the shared Space page strip: where each Space's
-/// page card stands while the sidebar's pager moves.
+/// page card stands while the sidebar's pager moves, and how opaque it is.
 ///
 /// The pager's native scrolling is the clock. It publishes its position on
 /// every scroll frame, tracking a finger and settling alike, and the cards
 /// follow it, so the page slides with the sidebar and comes to rest with it.
 /// `SpacePageStrip` decides which cards are on show and where they stand, as
-/// it does for the Mac's pages. Nothing here selects a Space: the pager
-/// commits the one it comes to rest on, and the page area then shows that
-/// Space's own page where its card already stands. Under Reduce Motion the
-/// page area shows the shown card alone, which changes when the switch lands.
+/// it does for the Mac's pages; where pages don't slide, `SpacePageFade`
+/// decides which card shows whole, and it fades in over the one it leaves on
+/// the pager's settle curve. Nothing here selects a Space: the pager commits
+/// the one it comes to rest on, and the page area then shows that Space's own
+/// page where its card already stands.
 @MainActor @Observable
 final class MobileSpacePageMotion {
     // MARK: - Variables
@@ -22,10 +23,14 @@ final class MobileSpacePageMotion {
     /// each card stands along it.
     private(set) var strip = SpacePageStrip([], shownPins: [:])
     /// The Spaces whose cards the page area draws now, the shown one's among
-    /// them. It changes only as the strip crosses a Space, never on every
-    /// frame.
+    /// them. It changes only as the strip crosses a Space or a fade begins or
+    /// ends, never on every frame.
     private(set) var pageSpaceIDs: [UUID] = []
-    /// Whether the cards follow the pager.
+    /// Which card shows whole where pages fade rather than slide.
+    private(set) var fade = SpacePageFade()
+    /// How far the fade in flight has come.
+    private(set) var fadeProgress: Double = 1
+    /// Whether the cards follow the pager, or keep their place and fade.
     private(set) var slides = true
     /// The page area's width, which turns Spaces into points.
     private(set) var pageWidth: CGFloat = 0
@@ -43,13 +48,15 @@ final class MobileSpacePageMotion {
     @ObservationIgnored private var shownPins: [UUID: UUID] = [:]
     /// The Space the page area shows.
     @ObservationIgnored private var shownSpaceID: UUID?
+    /// The fade in flight, so a completion can tell itself from a later one.
+    @ObservationIgnored private var fadeGeneration: UInt = 0
 
     // MARK: - Actions - Presentation
 
     /// Follows `presentation`, the pager of a window whose Spaces are
     /// `spaces` and which shows `shownSpaceID`, where `shownPins` is the
     /// pinned tab each Space shows, for those that show one. Cards slide when
-    /// `slides`.
+    /// `slides`, and fade otherwise.
     func follow(
         _ presentation: SpacePagerPresentation?, spaces: [SpaceModel], shownSpaceID: UUID?,
         shownPins: [UUID: UUID], slides: Bool
@@ -60,7 +67,11 @@ final class MobileSpacePageMotion {
         self.spaces = spaces
         self.shownPins = shownPins
         self.shownSpaceID = shownSpaceID
-        if self.slides != slides { self.slides = slides }
+        if self.slides != slides {
+            self.slides = slides
+            fade.reset()
+            fadeProgress = 1
+        }
         if self.presentation !== presentation {
             self.presentation?.removeObserver(owner: self)
             self.presentation = presentation
@@ -92,6 +103,12 @@ final class MobileSpacePageMotion {
         return strip.offset(ofPageAt: index, at: position) * pageWidth
     }
 
+    /// How opaque the card of the Space `spaceID` is: whole where cards
+    /// slide, and where they fade, as far as the fade has come.
+    func opacity(of spaceID: UUID) -> Double {
+        slides ? 1 : fade.opacity(of: spaceID, progress: fadeProgress)
+    }
+
     private func receive(_ snapshot: SpacePagerPresentation.Snapshot) {
         guard snapshot.order(of: spaces) != nil, snapshot.position.isFinite else { return }
         if snapshot.phase != .idle, landedSpaceID != nil { landedSpaceID = nil }
@@ -115,17 +132,54 @@ final class MobileSpacePageMotion {
         arrange()
     }
 
-    /// Lays the strip out in the order the snapshot runs along, and finds the
-    /// cards on show where cards slide. One that shares its place with the
-    /// shown Space's, showing the same page, leaves the page to it.
+    /// Lays the strip out in the order the snapshot runs along, shows whole
+    /// the card the pager settles on where cards fade, and finds the cards on
+    /// show. One that shares its place with the shown Space's, showing the
+    /// same page, leaves the page to it.
     private func arrange() {
         guard let snapshot else { return }
         let next = SpacePageStrip(snapshot.order(of: spaces) ?? spaces, shownPins: shownPins)
         if strip != next { strip = next }
+        if !slides { showWhole(fade.target(of: snapshot, selectedSpaceID: shownSpaceID)) }
         let pages = strip.spaceIDs.indices.filter { index in
-            slides && strip.presentation(at: index, in: snapshot, selectedSpaceID: shownSpaceID) != .inactive
+            strip.presentation(
+                at: index, in: snapshot, selectedSpaceID: shownSpaceID, fadingOut: fade.fadingOut) != .inactive
                 && !strip.yieldsPlace(at: index, selectedSpaceID: shownSpaceID, in: snapshot)
         }.map { strip.spaceIDs[$0] }
         if pageSpaceIDs != pages { pageSpaceIDs = pages }
+    }
+
+    // MARK: - Actions - Fading
+
+    /// Shows the card of `spaceID` whole, fading it in over the one shown
+    /// before on the pager's settle curve and timing.
+    private func showWhole(_ spaceID: UUID?) {
+        guard spaceID != fade.wholeSpaceID else { return }
+        fadeGeneration &+= 1
+        let generation = fadeGeneration
+        var next = fade
+        // A fade still under way ends where it is.
+        next.finish()
+        let fades = next.show(spaceID, sharePage: strip.sharesPage)
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            fade = next
+            fadeProgress = fades ? 0 : 1
+        }
+        guard fades else { return }
+        // The card fading out draws whole for a frame first: a card that
+        // joins the page area in the update that fades it has nothing to
+        // fade from.
+        Task { @MainActor [weak self] in
+            guard let self, fadeGeneration == generation else { return }
+            withAnimation(SpacePagerSettlement.standardAnimation, completionCriteria: .logicallyComplete) {
+                fadeProgress = 1
+            } completion: { [weak self] in
+                guard let self, fadeGeneration == generation else { return }
+                fade.finish()
+                arrange()
+            }
+        }
     }
 }

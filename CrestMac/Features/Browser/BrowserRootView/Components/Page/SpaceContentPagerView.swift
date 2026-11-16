@@ -6,8 +6,9 @@ import SwiftUI
 /// web history gestures continue to belong to WebKit.
 ///
 /// The macOS host of the shared strip: `SpacePageStrip` decides where each
-/// page stands, which pages are kept and what each shows; this view hosts
-/// the pages and moves them with Core Animation.
+/// page stands, which pages are kept and what each shows, and `SpacePageFade`
+/// which page shows whole where pages fade rather than slide; this view
+/// hosts the pages and moves them with Core Animation.
 @MainActor
 final class SpaceContentPagerView<Content: View & Equatable>: NSView {
     /// The order the strip runs along: the pager's, which is every Space in
@@ -29,6 +30,12 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
     private var makeRoot: ((SpaceModel, Bool) -> SpacePageRoot<Content>)?
     private var lastSize = CGSize.zero
     private var preparedDestination: UUID?
+    /// Whether the pages slide with the pager, or keep their place and fade.
+    private var slides = true
+    /// Which page shows whole while the pages fade rather than slide.
+    private var fade = SpacePageFade()
+    /// The fade in flight, so a completion can tell itself from a later one.
+    private var fadeEpoch: UInt = 0
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
@@ -44,10 +51,11 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
     }
 
     /// Shows `spaces`, where `shownPins` is the pinned tab each Space shows,
-    /// for the Spaces that show one.
+    /// for the Spaces that show one. The pages slide with `presentation`'s
+    /// pager when `slides`, and fade from one to the next otherwise.
     func update(
         spaces: [SpaceModel], selectedSpaceID: UUID, lockedSpaceIDs: Set<UUID>, shownPins: [UUID: UUID],
-        layoutDirection: LayoutDirection, presentation: SpacePagerPresentation?,
+        layoutDirection: LayoutDirection, presentation: SpacePagerPresentation?, slides: Bool,
         makeRoot: @escaping (SpaceModel, Bool) -> SpacePageRoot<Content>
     ) {
         let changedLocks = self.lockedSpaceIDs.symmetricDifference(lockedSpaceIDs)
@@ -66,6 +74,11 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
         self.lockedSpaceIDs = lockedSpaceIDs
         self.layoutDirection = layoutDirection
         self.makeRoot = makeRoot
+        if self.slides != slides {
+            stopAnimations()
+            self.slides = slides
+            fade.reset()
+        }
         if self.presentation !== presentation {
             disconnect()
             self.presentation = presentation
@@ -74,10 +87,12 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
         let current = matchingSnapshot ?? restingSnapshot(selectedSpaceID)
         arrange(current.order(of: allSpaces) ?? allSpaces)
         snapshot = current
+        let fades = showWhole(current)
         prepareHosts(
             at: current.position, destination: current.destinationID, refresh: current.phase == .idle,
             preparesNeighbors: current.phase == .idle)
         if transition == nil { positionHosts(at: current.position) }
+        showWholePage(fading: fades)
         updateAccessibility()
     }
 
@@ -110,7 +125,9 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
                 preparesNeighbors: snapshot.phase == .idle)
             positionHosts(at: snapshot.position)
         }
-        if let transition { resumeSlide(moving, along: transition, beganAt: began) }
+        if let transition, slides { resumeSlide(moving, along: transition, beganAt: began) }
+        // A fade cut short by the resize has ended.
+        if !slides { finishFade(fadeEpoch) }
     }
 
     override func hitTest(_ point: NSPoint) -> NSView? {
@@ -157,22 +174,32 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
                 }
                 return
             }
+            let fades = showWhole(value)
             prepareHosts(
                 at: release.startPosition, destination: value.destinationID, refresh: false,
                 preparesNeighbors: false)
+            // A fade turned around midway goes back from where it is.
+            let opacities = presentedOpacities
             stopAnimations()
             positionHosts(at: release.startPosition)
             transition = release
-            let moving = hosts.filter { key, host in
-                needsMotion(host, to: origin(for: key, at: release.endPosition, placedNear: release.startPosition))
+            if slides {
+                let moving = hosts.filter { key, host in
+                    needsMotion(
+                        host, to: origin(for: key, at: release.endPosition, placedNear: release.startPosition))
+                }
+                slide(Array(moving.keys), along: release)
+            } else {
+                showWholePage(fading: fades, along: release, from: opacities)
             }
-            slide(Array(moving.keys), along: release)
         } else {
+            let fades = showWhole(value)
             stopAnimations()
             prepareHosts(
                 at: value.position, destination: value.destinationID, refresh: settles,
                 preparesNeighbors: value.phase == .idle)
             positionHosts(at: value.position)
+            showWholePage(fading: fades)
         }
         updateAccessibility()
     }
@@ -243,7 +270,7 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
         guard !spaces.isEmpty, let makeRoot else { return }
         let indices = strip.keptIndices(
             at: position, destinationID: destination, selectedSpaceID: selectedSpaceID,
-            isMoving: snapshot?.phase != .idle, keepsNeighbors: preparesNeighbors,
+            isMoving: snapshot?.phase != .idle, fadingOut: fade.fadingOut, keepsNeighbors: preparesNeighbors,
             keeps: spaces.indices.filter { hosts[BrowserSpaceRuntimeAssignment(space: spaces[$0])] != nil })
         let required = Set(indices.map { BrowserSpaceRuntimeAssignment(space: spaces[$0]) })
         for key in hosts.keys where !required.contains(key) {
@@ -290,6 +317,8 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
                 host.frame = CGRect(origin: origin(for: key, at: position), size: bounds.size)
                 host.hostingView.frame = host.bounds
                 host.isHidden = contentPresentation == .inactive || yieldsPlace(at: index)
+                // A page that joins as a fade begins fades in from clear.
+                host.alphaValue = fade.fadingOut.isEmpty ? opacity(for: key) : 0
                 hosts[key] = host
                 addSubview(host)
             }
@@ -297,15 +326,17 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
     }
 
     private func contentPresentation(at index: Int) -> SpaceContentPresentation {
-        strip.presentation(at: index, in: snapshot, selectedSpaceID: selectedSpaceID)
+        strip.presentation(at: index, in: snapshot, selectedSpaceID: selectedSpaceID, fadingOut: fade.fadingOut)
     }
 
     /// Where `key`'s page sits while the strip shows `position`, placed
     /// around the ends as near `reference`: a slide keeps each page where it
-    /// began, so none switches ends partway.
+    /// began, so none switches ends partway. Pages that fade all stand in the
+    /// one place.
     private func origin(
         for key: BrowserSpaceRuntimeAssignment, at position: CGFloat, placedNear reference: CGFloat? = nil
     ) -> CGPoint {
+        guard slides else { return .zero }
         let index = spaces.firstIndex { $0.id == key.spaceID } ?? 0
         let direction: CGFloat = layoutDirection == .leftToRight ? 1 : -1
         return CGPoint(
@@ -336,6 +367,86 @@ final class SpaceContentPagerView<Content: View & Equatable>: NSView {
                 if host.frame.origin != origin { host.setFrameOrigin(origin) }
             }
         }
+    }
+
+    // MARK: - Actions - Fading
+
+    /// Shows whole, where the pages fade, the page of the Space `snapshot`
+    /// settles on. Answers whether the page shown before fades out under it.
+    private func showWhole(_ snapshot: SpacePagerPresentation.Snapshot) -> Bool {
+        guard !slides else { return false }
+        let target = fade.target(of: snapshot, selectedSpaceID: selectedSpaceID)
+        guard fade.show(target, sharePage: strip.sharesPage) else { return false }
+        // Off screen, the page just changes.
+        guard window != nil, bounds.width > 0 else {
+            fade.finish()
+            return false
+        }
+        return true
+    }
+
+    /// How opaque the page of `key` is: whole where the pages slide, and
+    /// where they fade, for the Space shown whole alone.
+    private func opacity(for key: BrowserSpaceRuntimeAssignment) -> CGFloat {
+        slides ? 1 : CGFloat(fade.opacity(of: key.spaceID))
+    }
+
+    /// How opaque each page looks now, a fade in flight included.
+    private var presentedOpacities: [BrowserSpaceRuntimeAssignment: CGFloat] {
+        hosts.mapValues { host in
+            host.layer?.presentation().map { CGFloat($0.opacity) } ?? host.alphaValue
+        }
+    }
+
+    /// Shows the page of the Space chosen whole, and the others clear. When
+    /// it `fades`, the page fades in over the one it replaces along
+    /// `release`, starting from `opacities`; otherwise each page takes its
+    /// opacity at once, except a page still fading there.
+    private func showWholePage(
+        fading fades: Bool, along release: SpacePagerSettlement = .onePage,
+        from opacities: [BrowserSpaceRuntimeAssignment: CGFloat]? = nil
+    ) {
+        guard fades else {
+            for (key, host) in hosts where host.alphaValue != opacity(for: key) {
+                host.alphaValue = opacity(for: key)
+            }
+            return
+        }
+        let opacities = opacities ?? presentedOpacities
+        fadeEpoch &+= 1
+        let epoch = fadeEpoch
+        NSAnimationContext.runAnimationGroup(
+            { context in
+                context.duration = release.duration
+                context.timingFunction = release.timingFunction
+                for (key, host) in hosts {
+                    let target = opacity(for: key)
+                    let start = opacities[key] ?? host.alphaValue
+                    guard start != target || host.alphaValue != target else { continue }
+                    let animation = CABasicAnimation()
+                    release.configure(animation)
+                    animation.fromValue = start
+                    host.animations = ["alphaValue": animation]
+                    host.animator().alphaValue = target
+                }
+            },
+            completionHandler: { [weak self] in
+                Task { @MainActor in self?.finishFade(epoch) }
+            })
+    }
+
+    /// Lets the pages that faded out go, once the fade `epoch` names is the
+    /// last one and has ended.
+    private func finishFade(_ epoch: UInt) {
+        guard epoch == fadeEpoch, !fade.fadingOut.isEmpty else { return }
+        fade.finish()
+        guard let snapshot else { return }
+        prepareHosts(
+            at: snapshot.position, destination: snapshot.destinationID, refresh: false,
+            preparesNeighbors: snapshot.phase == .idle)
+        if transition == nil { positionHosts(at: snapshot.position) }
+        showWholePage(fading: false)
+        updateAccessibility()
     }
 
     private func updateAccessibility() {

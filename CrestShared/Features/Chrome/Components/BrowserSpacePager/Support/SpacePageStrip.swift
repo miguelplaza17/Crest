@@ -75,6 +75,15 @@ struct SpacePageStrip: Equatable {
         return place(CGFloat(placed)) - place(position)
     }
 
+    /// Whether the Spaces `first` and `second` stand next to each other and
+    /// show one page.
+    func sharesPage(_ first: UUID, _ second: UUID) -> Bool {
+        guard let one = spaceIDs.firstIndex(of: first), let other = spaceIDs.firstIndex(of: second),
+            abs(one - other) == 1
+        else { return false }
+        return sharedPlaces.contains(min(one, other))
+    }
+
     /// Whether the page at `index` shares its place with the selected
     /// Space's while the strip moves. Only the selected Space draws that page
     /// then, as it held it before the move.
@@ -88,12 +97,12 @@ struct SpacePageStrip: Equatable {
     // MARK: - Actions - Pages
 
     /// The pages a page area keeps at `position`, by index: those in view,
-    /// the one the strip goes to, a selection made mid-move, and where it
-    /// `keepsNeighbors`, the pages either side and the pages it `keeps`
-    /// already, nearest first, up to `capacity`.
+    /// the one the strip goes to, a selection made mid-move, the pages still
+    /// fading out, and where it `keepsNeighbors`, the pages either side and
+    /// the pages it `keeps` already, nearest first, up to `capacity`.
     func keptIndices(
-        at position: CGFloat, destinationID: UUID?, selectedSpaceID: UUID?, isMoving: Bool, keepsNeighbors: Bool,
-        keeps: [Int] = []
+        at position: CGFloat, destinationID: UUID?, selectedSpaceID: UUID?, isMoving: Bool,
+        fadingOut: Set<UUID>, keepsNeighbors: Bool, keeps: [Int] = []
     ) -> Set<Int> {
         guard !spaceIDs.isEmpty else { return [] }
         let center = min(spaceIDs.count - 1, max(0, Int(position.rounded())))
@@ -103,6 +112,7 @@ struct SpacePageStrip: Equatable {
             // A selection made mid-slide is where the slide goes next.
             visible.insert(selected)
         }
+        for index in spaceIDs.indices where fadingOut.contains(spaceIDs[index]) { visible.insert(index) }
         var indices = visible.filter(spaceIDs.indices.contains)
         guard keepsNeighbors else { return indices }
         for index in [target - 1, target + 1, center - 1, center + 1]
@@ -116,14 +126,17 @@ struct SpacePageStrip: Equatable {
     }
 
     /// What the page at `index` shows at `snapshot`, where `selectedSpaceID`
-    /// is the Space the window shows: the shown page at rest takes input, the
-    /// pages a move passes through or goes to are previews, and the rest
-    /// show nothing.
+    /// is the Space the window shows and `fadingOut` the Spaces whose pages
+    /// are still fading out: the shown page at rest takes input, the pages a
+    /// move passes through or goes to are previews, and the rest show
+    /// nothing.
     func presentation(
-        at index: Int, in snapshot: SpacePagerPresentation.Snapshot?, selectedSpaceID: UUID?
+        at index: Int, in snapshot: SpacePagerPresentation.Snapshot?, selectedSpaceID: UUID?,
+        fadingOut: Set<UUID> = []
     ) -> SpaceContentPresentation {
         guard let snapshot, spaceIDs.indices.contains(index) else { return .inactive }
         let id = spaceIDs[index]
+        if fadingOut.contains(id), id != selectedSpaceID { return .preview }
         if snapshot.phase == .idle {
             guard id == snapshot.destinationID else { return .inactive }
             return id == selectedSpaceID ? .interactive : .preview
