@@ -22,7 +22,8 @@ struct SiteControlsBlockingPage: View {
                         SiteControlsSwitch(
                             title: Text(blocking.title),
                             isOn: Binding(
-                                get: { blocking.blocks }, set: { _ in model.platform.run(.toggleContentBlocking) }))
+                                get: { blocking.blocks }, set: { _ in model.platform.run(.toggleContentBlocking) })
+                        )
                         .disabled(!model.platform.canRun(.toggleContentBlocking))
                     }
                 }
