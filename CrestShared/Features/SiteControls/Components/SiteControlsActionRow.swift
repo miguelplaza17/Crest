@@ -48,8 +48,11 @@ struct SiteControlsActionRow: View {
             }
         }
         .frame(height: metrics.actionTileHeight)
-        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: SiteControlsModel.space) }) {
-            model.actionRowFrame = $0
+        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: SiteControlsModel.space) }) { frame in
+            // Only the row on screen says where drags land: the root's, or
+            // the editor's while its page shows. One sliding away keeps quiet.
+            guard isEditing == (model.shownPage != nil) else { return }
+            model.actionRowFrame = frame
         }
         .siteControlsActionDragSource(model) { start, location in pickUp(at: start, pointer: location) }
         .animation(CrestMotion.dragSource.unlessReducingMotion(reduceMotion), value: places.map(\.id))
