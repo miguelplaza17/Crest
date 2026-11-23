@@ -486,6 +486,9 @@
     "%@, %@, %lld of %lld" : {
 
     },
+    "%@, %@. Blocks %@" : {
+
+    },
     "%@, %lld of %lld" : {
 
     },
@@ -525,9 +528,6 @@
       }
     },
     "%@: %@. Other Spaces aren’t affected." : {
-
-    },
-    "%@. Blocks %@" : {
 
     },
     "%@. Press Tab to enter a query." : {
@@ -2934,9 +2934,6 @@
 
     },
     "Blocked on %@" : {
-
-    },
-    "Blocked on %@ · %@" : {
 
     },
     "Blocking" : {

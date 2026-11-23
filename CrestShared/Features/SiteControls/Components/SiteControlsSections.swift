@@ -87,16 +87,19 @@ struct SiteControlsBlockingTile: View {
                 .accessibilityLabel("Ads and Trackers Options")
                 .accessibilityIdentifier("site-control-blocking-options")
             }
-            if !kinds.isEmpty || hidesElements {
+            if let blocking {
                 Button {
                     model.open(.blocking)
                 } label: {
                     CrestFlowLayout(gap: 4) {
+                        SiteControlsBlockChip(
+                            title: model.blockingLevelTitle, symbol: "shield.lefthalf.filled", isActive: false)
                         ForEach(kinds, id: \.self) { kind in
-                            SiteControlsBlockChip(title: kind.title, symbol: kind.symbol, isActive: blocks)
+                            SiteControlsBlockChip(title: kind.title, symbol: kind.symbol, isActive: blocking.blocks)
                         }
                         if hidesElements {
-                            SiteControlsBlockChip(title: "Hidden by you", symbol: "rectangle.dashed", isActive: blocks)
+                            SiteControlsBlockChip(
+                                title: "Hidden by you", symbol: "rectangle.dashed", isActive: blocking.blocks)
                         }
                     }
                     .padding(.horizontal, CrestSpacing.small)
@@ -112,20 +115,20 @@ struct SiteControlsBlockingTile: View {
         .accessibilityElement(children: .contain)
     }
 
-    /// Whether the site blocks, and at which level, naming the site by its host.
+    /// Whether the site blocks, naming it by its host.
     private func detail(_ blocking: SiteContentBlockingSwitch?) -> LocalizedStringResource {
         guard let blocking else { return "This Space blocks nothing" }
-        let level = String(localized: model.blockingLevelTitle)
-        return blocking.blocks
-            ? "Blocked on \(blocking.origin.host) · \(level)" : "Allowed on \(blocking.origin.host)"
+        return blocking.blocks ? "Blocked on \(blocking.origin.host)" : "Allowed on \(blocking.origin.host)"
     }
 
-    /// The card's state for VoiceOver: what it says, and the kinds it blocks.
+    /// The card's state for VoiceOver: what it says, the level, and the kinds
+    /// it blocks.
     private func accessibilityValue(_ blocking: SiteContentBlockingSwitch?, kinds: [ContentBlockKind]) -> String {
         let detail = String(localized: detail(blocking))
         guard blocking?.blocks == true, !kinds.isEmpty else { return detail }
+        let level = String(localized: model.blockingLevelTitle)
         let names = kinds.map { String(localized: $0.title) }.formatted(.list(type: .and))
-        return String(localized: "\(detail). Blocks \(names)")
+        return String(localized: "\(detail), \(level). Blocks \(names)")
     }
 }
 
