@@ -23,6 +23,7 @@ struct SiteControlsBlockingPage: View {
                             title: Text(blocking.title),
                             isOn: Binding(
                                 get: { blocking.blocks }, set: { _ in model.platform.run(.toggleContentBlocking) }))
+                        .disabled(!model.platform.canRun(.toggleContentBlocking))
                     }
                 }
             }

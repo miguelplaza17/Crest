@@ -118,6 +118,12 @@ final class SiteControlsModel {
         open(.actions)
     }
 
+    /// Goes back to the root from any page, as a request that waits there does.
+    func showRoot() {
+        path.removeAll()
+        isEditingActions = false
+    }
+
     /// Goes back to what showed before the page on top.
     func back() {
         guard !path.isEmpty else { return }

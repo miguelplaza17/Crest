@@ -71,6 +71,7 @@ struct SiteControlsBlockingTile: View {
                             get: { blocking.blocks }, set: { _ in model.platform.run(.toggleContentBlocking) })
                     )
                     .padding(.horizontal, CrestSpacing.small)
+                    .disabled(!model.platform.canRun(.toggleContentBlocking))
                     .accessibilityIdentifier("site-content-blocking-switch")
                 }
                 Divider()

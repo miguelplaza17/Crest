@@ -75,7 +75,7 @@ struct SiteControlsWaitingItem: View {
                     title: "Allow", accessibilityLabel: Text(notice.allowActionAccessibilityLabel),
                     accessibilityHint: Text(notice.allowActionAccessibilityHint),
                     identifier: "allow-blocked-automatic-popups"
-                ) { model.page.allowAutomaticPopupsForBlockedSite() }
+                ) { model.page.allowAutomaticPopupsForBlockedSite(shownFor: notice.origin) }
             }
             identifier = "blocked-popup-site-control-notice"
         }

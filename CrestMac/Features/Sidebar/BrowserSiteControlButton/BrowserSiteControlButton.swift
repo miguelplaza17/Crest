@@ -55,10 +55,13 @@ struct BrowserSiteControlButton: View {
         }
         .pagePermissionHost(configuration.page.sitePermissionRequests)
         .onChange(of: configuration.page.sitePermissionRequests.current?.id) {
-            // A request opens Site Controls on its own; once it is answered,
-            // they close again unless the person opened them.
+            // A request opens Site Controls on its own, at the root where it
+            // waits, and asks to be remembered as any new request does; once
+            // it is answered, they close again unless the person opened them.
+            model?.remembersPermission = true
             if configuration.page.sitePermissionRequests.current != nil {
-                prepare(opening: nil)
+                openForRequest()
+                model?.showRoot()
             } else if !isPresented {
                 model = nil
             }
@@ -67,7 +70,7 @@ struct BrowserSiteControlButton: View {
         .onChange(of: commands?.actions.chrome.siteControlsRequest) { takeRequest() }
         .onAppear {
             presence.isOnScreen = true
-            if configuration.page.sitePermissionRequests.current != nil { prepare(opening: nil) }
+            if configuration.page.sitePermissionRequests.current != nil { openForRequest() }
             takeRequest()
         }
         .onDisappear {
@@ -91,12 +94,19 @@ struct BrowserSiteControlButton: View {
         guard let chrome = commands?.actions.chrome,
             let destination = chrome.takeSiteControlsRequest(for: configuration.page)
         else { return }
-        if isPresented, let model {
+        if let model {
             model.open(destination)
         } else {
             prepare(opening: destination)
-            presentationBinding.wrappedValue = true
         }
+        presentationBinding.wrappedValue = true
+    }
+
+    /// Opens Site Controls for a waiting request, focusing a split card first
+    /// so the commands they run act on the card that asked.
+    private func openForRequest() {
+        focusCard()
+        prepare(opening: nil)
     }
 
     /// Makes the Site Controls the popover shows, on `destination` or the
