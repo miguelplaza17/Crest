@@ -20,7 +20,21 @@ struct SiteControlsRow<Trailing: View>: View {
                 title: title, symbol: symbol, subtitle: subtitle, symbolTint: symbolTint, titleTint: titleTint,
                 trailing: trailing)
         }
-        .buttonStyle(.crestFormRow)
+        .buttonStyle(SiteControlsRowButtonStyle())
+    }
+}
+
+/// A row's button: the design system's hover and press surface over the
+/// whole row, reaching past its content on either side so the row's text
+/// stays in line with the rest, and no further than the row's own height, so
+/// rows stacked together never overlap.
+struct SiteControlsRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .padding(.horizontal, CrestFormRowButtonStyle.reach)
+            .contentShape(.rect)
+            .crestHoverSurface(cornerRadius: CrestRadius.compact, isPressed: configuration.isPressed)
+            .padding(.horizontal, -CrestFormRowButtonStyle.reach)
     }
 }
 
@@ -37,7 +51,8 @@ extension SiteControlsRow where Trailing == SiteControlsRowValue {
     }
 }
 
-/// A row's content, laid out the same whether it is pressed or only read.
+/// A row's content, laid out the same whether it is pressed or only read,
+/// with room above and below it inside the row for a hover surface.
 struct SiteControlsRowLabel<Trailing: View>: View {
     let title: Text
     var symbol: String?
@@ -72,7 +87,8 @@ struct SiteControlsRowLabel<Trailing: View>: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             trailing()
         }
-        .frame(minHeight: metrics.rowHeight)
+        .frame(minHeight: metrics.rowHeight - metrics.rowInset * 2)
+        .padding(.vertical, metrics.rowInset)
         .contentShape(.rect)
     }
 }

@@ -1,12 +1,13 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// The actions on top of Site Controls as a row of tiles that share its
-/// width. A tile dragged along the row lifts out of it and the others open a
-/// gap where it would land; an action dragged in from the editor's list does
-/// the same, letting the last go when there are four. While the editor shows
-/// it, each tile wears its slot's number, and the slots still empty wait at
-/// the end for an action.
+/// width. A tile picked up lifts out of the row and follows the pointer; held
+/// over the row, the others open a gap where it would land, and held away
+/// from it, they close up behind it, since letting it go there takes it off.
+/// An action dragged up from the editor's list opens a gap the same way,
+/// letting the last go when there are four. While the editor shows the row,
+/// each tile wears its slot's number, and the slots still empty wait at the
+/// end for an action.
 struct SiteControlsActionRow: View {
     // MARK: - Types
 
@@ -34,8 +35,6 @@ struct SiteControlsActionRow: View {
 
     @Environment(\.siteControlsMetrics) private var metrics
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    /// The row's width, which a drag over it divides among its places.
-    @State private var width: CGFloat = 0
 
     var body: some View {
         let places = places
@@ -49,38 +48,53 @@ struct SiteControlsActionRow: View {
             }
         }
         .frame(height: metrics.actionTileHeight)
-        .onGeometryChange(for: CGFloat.self, of: \.size.width) { width = $0 }
+        .onGeometryChange(for: CGRect.self, of: { $0.frame(in: SiteControlsModel.space) }) {
+            model.actionRowFrame = $0
+        }
+        .siteControlsActionDragSource(model) { start, location in pickUp(at: start, pointer: location) }
         .animation(CrestMotion.dragSource.unlessReducingMotion(reduceMotion), value: places.map(\.id))
-        .onDrop(
-            of: [UTType.utf8PlainText],
-            delegate: SiteControlsActionRowDrop(model: model, slots: dropSlots, width: width))
     }
 
     // MARK: - Actions - Places
 
-    /// The row as it shows now: the actions on top, with a drag over the row
-    /// lifting its own tile out and holding a gap where it would land, and in
-    /// the editor the empty slots after them.
+    /// The row as it shows now: the actions on top, with a drag lifting its
+    /// own tile out, holding a gap where it would land over the row or where
+    /// it would go back to away from it, and in the editor the empty slots
+    /// after them.
     private var places: [Place] {
-        let items = model.topActions
-        var places = items.enumerated().map { Place.tile($1, slot: $0) }
-        if let dragged = model.draggedAction, let index = model.dropIndex {
-            places.removeAll { $0.id == dragged.name }
-            places.insert(.gap, at: min(index, places.count))
-            if places.count > SiteControlTopActions.maximumCount { places.removeLast() }
-        } else if isEditing {
-            places += (items.count..<SiteControlTopActions.maximumCount).map { Place.empty(slot: $0) }
+        var places = model.topActions.enumerated().map { Place.tile($1, slot: $0) }
+        if let drag = model.drag {
+            let lifted = places.firstIndex { $0.id == drag.action.name }
+            if let index = model.dropIndex {
+                if let lifted { places.remove(at: lifted) }
+                places.insert(.gap, at: min(index, places.count))
+                if places.count > SiteControlTopActions.maximumCount { places.removeLast() }
+            } else if drag.isFromRow, let lifted {
+                places.remove(at: lifted)
+                if !model.dragRemoves { places.insert(.gap, at: lifted) }
+            }
+        }
+        if isEditing {
+            places += (places.count..<SiteControlTopActions.maximumCount).map { Place.empty(slot: $0) }
         }
         return places
     }
 
-    /// How many places a drag over the row chooses between: the tiles it
-    /// does not carry, and one more while there is room.
-    private var dropSlots: Int {
-        let count = model.topActions.count
-        guard let dragged = model.draggedAction else { return count }
-        let carried = model.topActions.contains { $0.action == dragged } ? count - 1 : count
-        return min(carried + 1, SiteControlTopActions.maximumCount)
+    /// The tile under `start`, picked up with the pointer now at `pointer`,
+    /// keeping where the pointer holds it; nil over an empty slot.
+    private func pickUp(at start: CGPoint, pointer: CGPoint) -> SiteControlsModel.ActionDrag? {
+        let frame = model.actionRowFrame
+        let actions = model.topActions
+        let count = isEditing ? SiteControlTopActions.maximumCount : actions.count
+        guard frame.width > 0, count > 0 else { return nil }
+        let pitch = (frame.width + metrics.tileSpacing) / CGFloat(count)
+        let slot = Int((start.x - frame.minX) / pitch)
+        guard actions.indices.contains(slot) else { return nil }
+        let center = CGPoint(x: frame.minX + pitch * CGFloat(slot) + (pitch - metrics.tileSpacing) / 2, y: frame.midY)
+        return SiteControlsModel.ActionDrag(
+            action: actions[slot].action, isFromRow: true,
+            size: CGSize(width: pitch - metrics.tileSpacing, height: metrics.actionTileHeight),
+            grab: CGSize(width: start.x - center.x, height: start.y - center.y), location: pointer)
     }
 
     // MARK: - Actions - Drawing
@@ -90,14 +104,8 @@ struct SiteControlsActionRow: View {
             item: item, height: metrics.actionTileHeight, slotNumber: isEditing ? slot + 1 : nil,
             isSelected: isEditing && model.selectedSlot == slot
         ) {
+            guard !model.suppressesActivation, model.drag == nil else { return }
             if isEditing { model.selectedSlot = slot } else { model.run(item.action) }
-        }
-        .onDrag {
-            model.draggedAction = item.action
-            return NSItemProvider(object: item.action.name as NSString)
-        } preview: {
-            SiteControlsActionTile(item: item, height: metrics.actionTileHeight, action: {})
-                .frame(width: 70)
         }
         .contextMenu { SiteControlsTileMenu(model: model, slot: slot) }
         .accessibilityLabel(
@@ -149,50 +157,5 @@ struct SiteControlsActionRow: View {
         let target = slot + offset
         guard model.topActions.indices.contains(target) else { return }
         model.move(action, to: target)
-    }
-}
-
-/// A drag over the row of actions: it holds the gap where the dragged action
-/// would land, and letting go moves it there or brings it in. Only an action
-/// dragged within Site Controls lands; text from elsewhere does nothing.
-private struct SiteControlsActionRowDrop: DropDelegate {
-    let model: SiteControlsModel
-    /// How many places the drag chooses between.
-    let slots: Int
-    /// The row's width, which the places share.
-    let width: CGFloat
-
-    func validateDrop(info: DropInfo) -> Bool {
-        MainActor.assumeIsolated { model.draggedAction != nil }
-    }
-
-    func dropUpdated(info: DropInfo) -> DropProposal? {
-        MainActor.assumeIsolated {
-            guard model.draggedAction != nil else { return }
-            model.dropIndex = index(at: info.location.x)
-        }
-        return DropProposal(operation: .move)
-    }
-
-    func dropExited(info: DropInfo) {
-        MainActor.assumeIsolated { model.dropIndex = nil }
-    }
-
-    func performDrop(info: DropInfo) -> Bool {
-        MainActor.assumeIsolated {
-            defer {
-                model.draggedAction = nil
-                model.dropIndex = nil
-            }
-            guard let action = model.draggedAction else { return false }
-            model.move(action, to: model.dropIndex ?? index(at: info.location.x))
-            return true
-        }
-    }
-
-    /// The place under `x` along the row.
-    private func index(at x: CGFloat) -> Int {
-        guard width > 0, slots > 0 else { return 0 }
-        return min(max(Int(x / (width / CGFloat(slots))), 0), slots - 1)
     }
 }

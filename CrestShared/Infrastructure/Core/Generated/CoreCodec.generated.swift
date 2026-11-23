@@ -7,7 +7,7 @@ import Foundation
 enum CoreCodec {
     /// SHA-256 of the canonical contract schema. The core refuses any other.
     static let fingerprint: [UInt8] = [
-        0x57, 0x0f, 0x5b, 0x09, 0x07, 0x90, 0x36, 0x95, 0x38, 0x68, 0xd5, 0x79, 0x90, 0x81, 0x7a, 0x54, 0x09, 0xa7, 0xef, 0x38, 0x82, 0x88, 0x24, 0xff, 0xb7, 0x36, 0x72, 0x10, 0x48, 0x1b, 0x4e, 0x77
+        0x96, 0xee, 0x72, 0x89, 0xc2, 0x9c, 0xa1, 0x2f, 0xbc, 0x3d, 0x0c, 0xb4, 0xdd, 0x8a, 0x93, 0xc0, 0xd8, 0x07, 0xe3, 0x39, 0xc4, 0x59, 0xd1, 0x78, 0xfc, 0x33, 0xd7, 0x35, 0xbd, 0x5d, 0xd3, 0x9c
     ]
     /// SHA-256 of the engine contract alone, which an engine binding registers with.
     static let engineFingerprint: [UInt8] = [
@@ -28868,6 +28868,20 @@ extension CloudZoneLoss {
         let tag = try reader.readEnum()
         guard Self.all.indices.contains(tag) else {
             throw WireError.malformed("Unknown CloudZoneLoss \(tag)")
+        }
+        self = Self.all[tag]
+    }
+
+    func encode(into writer: inout WireWriter) {
+        writer.writeEnum(tag)
+    }
+}
+
+extension ContentBlockKind {
+    init(from reader: inout WireReader) throws(WireError) {
+        let tag = try reader.readEnum()
+        guard Self.all.indices.contains(tag) else {
+            throw WireError.malformed("Unknown ContentBlockKind \(tag)")
         }
         self = Self.all[tag]
     }

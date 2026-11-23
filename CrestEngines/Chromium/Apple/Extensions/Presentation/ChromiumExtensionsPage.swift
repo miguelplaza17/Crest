@@ -101,10 +101,11 @@ private struct ChromiumExtensionsPageRow: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(minHeight: metrics.rowHeight)
+                .frame(minHeight: metrics.rowHeight - metrics.rowInset * 2)
+                .padding(.vertical, metrics.rowInset)
                 .contentShape(.rect)
             }
-            .buttonStyle(.crestFormRow)
+            .buttonStyle(SiteControlsRowButtonStyle())
             .disabled(!action.isEnabled || action.isLoading)
             .background { BrowserExtensionPopupAnchorReader(popupAnchor: $popupAnchor) }
             .overlay { BrowserExtensionContextMenuTrigger(presentMenu: presentMenu) }

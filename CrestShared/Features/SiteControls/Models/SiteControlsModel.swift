@@ -38,6 +38,34 @@ final class SiteControlsModel {
         }
     }
 
+    /// An action the person drags within Site Controls, from the row on top
+    /// or the editor's list, drawn as its tile under the pointer.
+    struct ActionDrag {
+        let action: SiteControlAction
+        /// Whether it was picked up from the row on top, which letting it go
+        /// away from the row takes it off.
+        let isFromRow: Bool
+        /// The tile's size as it follows the pointer.
+        let size: CGSize
+        /// Where the pointer holds the tile, from the tile's center.
+        let grab: CGSize
+        /// Where the pointer is, in ``SiteControlsModel/space``.
+        var location: CGPoint
+
+        /// The tile's center as it follows the pointer.
+        var center: CGPoint { CGPoint(x: location.x - grab.width, y: location.y - grab.height) }
+    }
+
+    // MARK: - Static Variables
+
+    /// The space a drag's pointer and the row on top are measured in: all of
+    /// Site Controls.
+    static let space = NamedCoordinateSpace.named("crest.site-controls")
+
+    /// How long after a drag the tile or row let go over does not take the
+    /// release as a click.
+    private static let activationSuppression: Duration = .milliseconds(250)
+
     // MARK: - Variables
 
     let platform: any SiteControlsPlatform
@@ -55,10 +83,12 @@ final class SiteControlsModel {
     /// from now on, rather than this once.
     var remembersPermission = true
     /// The action being dragged, from the row on top or the editor's list.
-    var draggedAction: SiteControlAction?
-    /// Where in the row on top the dragged action would land, while the drag
-    /// is over it; nil elsewhere.
-    var dropIndex: Int?
+    private(set) var drag: ActionDrag?
+    /// The row on top's frame in ``space``, which a drag lands in.
+    var actionRowFrame: CGRect = .zero
+    /// Whether a drag just ended, so the click it ends with runs nothing.
+    private(set) var suppressesActivation = false
+    @ObservationIgnored private var activationSuppressionTask: Task<Void, Never>?
 
     var page: BrowserPlatformPage { platform.page }
     var core: CrestCore { platform.core }
@@ -201,6 +231,72 @@ final class SiteControlsModel {
         selectedSlot = 0
     }
 
+    // MARK: - Actions - Dragging
+
+    /// Picks `drag`'s action up, unless one is already being dragged.
+    func pickUp(_ drag: ActionDrag) {
+        guard self.drag == nil else { return }
+        self.drag = drag
+    }
+
+    /// Carries the dragged action on to `location`, in ``space``.
+    func carry(to location: CGPoint) {
+        drag?.location = location
+    }
+
+    /// Lets the dragged action go: over the row it lands where the gap is;
+    /// away from the row, one picked up from there leaves it unless it is the
+    /// last one; anywhere else nothing changes.
+    func endDrag() {
+        guard let drag else { return }
+        if let index = dropIndex {
+            move(drag.action, to: index)
+        } else if dragRemoves {
+            remove(drag.action)
+        }
+        self.drag = nil
+        suppressActivation()
+    }
+
+    /// Where in the row on top the dragged action would land, while it is
+    /// held over the row; nil elsewhere.
+    var dropIndex: Int? {
+        guard let drag, actionRowFrame.width > 0 else { return nil }
+        let reach = actionRowFrame.insetBy(dx: -CrestSpacing.medium, dy: -drag.size.height / 2)
+        guard reach.contains(drag.center) else { return nil }
+        let slots = dropSlots
+        let index = Int((drag.center.x - actionRowFrame.minX) / (actionRowFrame.width / CGFloat(slots)))
+        return min(max(index, 0), slots - 1)
+    }
+
+    /// Whether letting the dragged action go now takes it off the row: it
+    /// came from there, it is held away from the row, and others stay.
+    var dragRemoves: Bool {
+        guard let drag, drag.isFromRow, dropIndex == nil else { return false }
+        return core.state.siteControlTopActions.actions.count > 1
+    }
+
+    /// How many places a drag over the row chooses between: the actions it
+    /// does not carry, and one more while there is room.
+    private var dropSlots: Int {
+        let actions = core.state.siteControlTopActions.actions
+        guard let drag else { return actions.count }
+        let others = actions.contains(drag.action) ? actions.count - 1 : actions.count
+        return min(others + 1, SiteControlTopActions.maximumCount)
+    }
+
+    /// Keeps the click a drag ends with from running the tile or row it ends
+    /// over, for a moment.
+    private func suppressActivation() {
+        suppressesActivation = true
+        activationSuppressionTask?.cancel()
+        activationSuppressionTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.activationSuppression)
+            guard !Task.isCancelled else { return }
+            self?.suppressesActivation = false
+        }
+    }
+
     // MARK: - Actions - Waiting
 
     /// Answers the waiting request: for the page's Space, or this once.
@@ -231,6 +327,20 @@ final class SiteControlsModel {
 
     var blockedElements: BrowserBlockedElements {
         BrowserBlockedElements(core: core, pageURL: page.live.documentURL)
+    }
+
+    /// What the filter lists that are on keep off a page, in the order Site
+    /// Controls name them.
+    var blockedKinds: [ContentBlockKind] {
+        let blocked = Set(core.state.filterLists.lists.filter(\.isOn).flatMap(\.list.blocks))
+        return ContentBlockKind.all.filter(blocked.contains)
+    }
+
+    /// The level every site blocks at, or Custom where the person changed
+    /// which lists it turns on.
+    var blockingLevelTitle: LocalizedStringResource {
+        let lists = core.state.filterLists
+        return lists.isCustomized ? "Custom" : lists.level.title
     }
 
     // MARK: - Actions - Permissions

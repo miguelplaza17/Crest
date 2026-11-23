@@ -1,11 +1,10 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Every action outside the row on top, in its group, each run from its row;
 /// or, while editing, every action the device offers under that row. The
-/// person drags an action into the row and a tile back out onto the list, or
-/// chooses a slot and then an action, which works from the keyboard and with
-/// VoiceOver too; choosing one already in the row trades the two.
+/// person drags an action up into the row and a tile out of it, or chooses a
+/// slot and then an action, which works from the keyboard and with VoiceOver
+/// too; choosing one already in the row trades the two.
 struct SiteControlsActionsPage: View {
     let model: SiteControlsModel
 
@@ -34,15 +33,6 @@ struct SiteControlsActionsPage: View {
                     .accessibilityIdentifier("site-controls-reset-actions")
                 }
             }
-        }
-        // A tile dragged off the row and let go over the list leaves the row.
-        .onDrop(of: [UTType.utf8PlainText], isTargeted: nil) { _ in
-            defer { model.draggedAction = nil }
-            guard model.isEditingActions, let action = model.draggedAction,
-                model.topActions.contains(where: { $0.action == action })
-            else { return false }
-            model.remove(action)
-            return true
         }
     }
 
@@ -81,21 +71,26 @@ struct SiteControlsActionsPage: View {
         let item = model.item(action)
         let rank = model.core.state.siteControlTopActions.actions.firstIndex(of: action).map { $0 + 1 }
         return SiteControlsRow(title: Text(item.title), symbol: item.symbol) {
+            guard !model.suppressesActivation, model.drag == nil else { return }
             model.placeInSelectedSlot(action)
         } trailing: {
             SiteControlsRank(rank: rank)
         }
-        .onDrag {
-            model.draggedAction = action
-            return NSItemProvider(object: action.name as NSString)
-        } preview: {
-            Label(item.title, systemImage: item.symbol)
-                .padding(CrestSpacing.small)
-        }
+        .siteControlsActionDragSource(model) { _, location in pickUp(action, pointer: location) }
         .accessibilityLabel(Text(item.title))
         .accessibilityValue(rank.map { Text("In slot \($0)") } ?? Text(verbatim: ""))
         .accessibilityHint(Text("Puts it in slot \(model.selectedSlot + 1)"))
         .accessibilityIdentifier("site-controls-choose-\(action.name)")
+    }
+
+    /// `action` picked up from the list, drawn as a tile the size of one in a
+    /// full row, centered under the pointer.
+    private func pickUp(_ action: SiteControlAction, pointer: CGPoint) -> SiteControlsModel.ActionDrag {
+        let slots = CGFloat(SiteControlTopActions.maximumCount)
+        let width = (model.actionRowFrame.width - metrics.tileSpacing * (slots - 1)) / slots
+        return SiteControlsModel.ActionDrag(
+            action: action, isFromRow: false, size: CGSize(width: max(width, 0), height: metrics.actionTileHeight),
+            grab: .zero, location: pointer)
     }
 }
 

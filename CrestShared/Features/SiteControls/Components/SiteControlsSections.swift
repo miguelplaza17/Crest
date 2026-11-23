@@ -18,9 +18,11 @@ struct SiteControlsExtensionsSection<Tiles: View>: View {
     }
 }
 
-/// Blocking ads and trackers on the page's site, in its Space: a tile like
-/// the page's toggles, saying what it does there now, with the Space's switch
-/// for the site, which reloads the page. The tile opens Ads and Trackers.
+/// Blocking on the page's site, in its Space, as a card: whether the site
+/// blocks and at which level, and the kinds of things the lists that are on
+/// keep off the page, with the Space's switch for the site, which reloads the
+/// page. The card opens Ads and Trackers, as the chevron on its trailing edge
+/// says.
 struct SiteControlsBlockingTile: View {
     let model: SiteControlsModel
 
@@ -29,49 +31,127 @@ struct SiteControlsBlockingTile: View {
     var body: some View {
         let blocking = model.contentBlocking
         let blocks = blocking?.blocks == true
-        HStack(spacing: CrestSpacing.small) {
-            Button {
-                model.open(.blocking)
-            } label: {
-                HStack(spacing: CrestSpacing.small) {
-                    Image(systemName: blocks ? "checkmark.shield" : "shield.slash")
-                        .font(.system(size: metrics.glyphSize * 0.75, weight: .semibold))
-                        .foregroundStyle(blocks ? Color.white : .primary)
-                        .frame(width: 22, height: 22)
-                        .background(blocks ? CrestBrandTheme.accent : CrestColor.chromeSurface, in: .circle)
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Ads and trackers")
-                            .font(metrics.rowFont.weight(.semibold))
-                        Text(detail(blocking))
-                            .font(metrics.detailFont)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+        let kinds = blocking == nil ? [] : model.blockedKinds
+        let hidesElements = blocking != nil && model.blockedElements.exist
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 0) {
+                Button {
+                    model.open(.blocking)
+                } label: {
+                    HStack(spacing: CrestSpacing.small) {
+                        Image(systemName: blocks ? "checkmark.shield" : "shield.slash")
+                            .font(.system(size: metrics.glyphSize * 0.75, weight: .semibold))
+                            .foregroundStyle(blocks ? Color.white : .primary)
+                            .frame(width: 22, height: 22)
+                            .background(blocks ? CrestBrandTheme.accent : CrestColor.chromeSurface, in: .circle)
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text("Ads and trackers")
+                                .font(metrics.rowFont.weight(.semibold))
+                            Text(detail(blocking))
+                                .font(metrics.detailFont)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    CrestFormDisclosureChevron()
+                    .padding(.leading, CrestSpacing.small)
+                    .frame(maxWidth: .infinity, minHeight: metrics.toggleHeight)
+                    .contentShape(.rect)
                 }
-                .frame(minHeight: metrics.toggleHeight)
-                .contentShape(.rect)
+                .buttonStyle(.plain)
+                .accessibilityLabel("Ads and trackers")
+                .accessibilityValue(Text(accessibilityValue(blocking, kinds: kinds)))
+                .accessibilityHint("Shows ads and trackers on this site")
+                .accessibilityIdentifier("site-control-blocking")
+                if let blocking {
+                    SiteControlsSwitch(
+                        title: Text(blocking.title),
+                        isOn: Binding(
+                            get: { blocking.blocks }, set: { _ in model.platform.run(.toggleContentBlocking) })
+                    )
+                    .padding(.horizontal, CrestSpacing.small)
+                    .accessibilityIdentifier("site-content-blocking-switch")
+                }
+                Divider()
+                    .frame(height: metrics.toggleHeight * 0.55)
+                Button {
+                    model.open(.blocking)
+                } label: {
+                    CrestFormDisclosureChevron()
+                        .frame(width: 26, height: metrics.toggleHeight)
+                        .contentShape(.rect)
+                }
+                .buttonStyle(CrestChromeButtonStyle(controlSize: nil, cornerRadius: CrestRadius.compact))
+                .accessibilityLabel("Ads and Trackers Options")
+                .accessibilityIdentifier("site-control-blocking-options")
             }
-            .buttonStyle(.plain)
-            .accessibilityHint("Shows ads and trackers on this site")
-            .accessibilityIdentifier("site-control-blocking")
-            if let blocking {
-                SiteControlsSwitch(
-                    title: Text(blocking.title),
-                    isOn: Binding(get: { blocking.blocks }, set: { _ in model.platform.run(.toggleContentBlocking) })
-                )
-                .accessibilityIdentifier("site-content-blocking-switch")
+            if !kinds.isEmpty || hidesElements {
+                Button {
+                    model.open(.blocking)
+                } label: {
+                    CrestFlowLayout(gap: 4) {
+                        ForEach(kinds, id: \.self) { kind in
+                            SiteControlsBlockChip(title: kind.title, symbol: kind.symbol, isActive: blocks)
+                        }
+                        if hidesElements {
+                            SiteControlsBlockChip(title: "Hidden by you", symbol: "rectangle.dashed", isActive: blocks)
+                        }
+                    }
+                    .padding(.horizontal, CrestSpacing.small)
+                    .padding(.bottom, CrestSpacing.small)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHidden(true)
             }
         }
-        .padding(.horizontal, CrestSpacing.small)
         .crestHoverSurface(cornerRadius: CrestRadius.compact, showsRestingSurface: true)
         .accessibilityElement(children: .contain)
     }
 
+    /// Whether the site blocks, and at which level, naming the site by its host.
     private func detail(_ blocking: SiteContentBlockingSwitch?) -> LocalizedStringResource {
         guard let blocking else { return "This Space blocks nothing" }
-        return blocking.blocks ? "Blocked on \(blocking.origin.host)" : "Allowed on \(blocking.origin.host)"
+        let level = String(localized: model.blockingLevelTitle)
+        return blocking.blocks
+            ? "Blocked on \(blocking.origin.host) · \(level)" : "Allowed on \(blocking.origin.host)"
+    }
+
+    /// The card's state for VoiceOver: what it says, and the kinds it blocks.
+    private func accessibilityValue(_ blocking: SiteContentBlockingSwitch?, kinds: [ContentBlockKind]) -> String {
+        let detail = String(localized: detail(blocking))
+        guard blocking?.blocks == true, !kinds.isEmpty else { return detail }
+        let names = kinds.map { String(localized: $0.title) }.formatted(.list(type: .and))
+        return String(localized: "\(detail). Blocks \(names)")
+    }
+}
+
+/// One kind of thing blocking keeps off the page, as a small chip: Crest blue
+/// while the site blocks it, muted while the site allows it.
+private struct SiteControlsBlockChip: View {
+    let title: LocalizedStringResource
+    let symbol: String
+    let isActive: Bool
+
+    @Environment(\.siteControlsMetrics) private var metrics
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: symbol)
+                .imageScale(.small)
+            Text(title)
+                .lineLimit(1)
+        }
+        .font(metrics.tileFont)
+        .foregroundStyle(isActive ? CrestBrandTheme.accentText : .secondary)
+        .padding(.horizontal, 7)
+        .frame(height: metrics.chipHeight - 4)
+        .background(
+            isActive ? CrestBrandTheme.accent.opacity(CrestOpacity.statusFill) : CrestColor.chromeSurface, in: .capsule
+        )
+        .fixedSize()
     }
 }
 

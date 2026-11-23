@@ -527,6 +527,9 @@
     "%@: %@. Other Spaces aren’t affected." : {
 
     },
+    "%@. Blocks %@" : {
+
+    },
     "%@. Press Tab to enter a query." : {
 
     },
@@ -2004,6 +2007,9 @@
     "AdGuard Turkish" : {
 
     },
+    "Ads" : {
+
+    },
     "Ads and trackers" : {
 
     },
@@ -2011,6 +2017,9 @@
 
     },
     "Ads and trackers are blocked" : {
+
+    },
+    "Ads and Trackers Options" : {
 
     },
     "ads trackers content blocking filter lists subscribe EasyList uBlock AdGuard my filters custom rules block element cookie notices strict balanced" : {
@@ -2925,6 +2934,9 @@
 
     },
     "Blocked on %@" : {
+
+    },
+    "Blocked on %@ · %@" : {
 
     },
     "Blocking" : {
@@ -4115,6 +4127,9 @@
       }
     },
     "Control your browsing data" : {
+
+    },
+    "Cookie notices" : {
 
     },
     "Cookies" : {
@@ -6723,6 +6738,9 @@
           }
         }
       }
+    },
+    "Hidden by you" : {
+
     },
     "Hide AI Answers" : {
 
@@ -11611,6 +11629,9 @@
         }
       }
     },
+    "Scams" : {
+
+    },
     "Scarlet" : {
 
     },
@@ -14503,6 +14524,9 @@
           }
         }
       }
+    },
+    "Trackers" : {
+
     },
     "Transformations" : {
 

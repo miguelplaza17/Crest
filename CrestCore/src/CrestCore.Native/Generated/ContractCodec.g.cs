@@ -14,7 +14,7 @@ namespace CrestCore.Native;
 public static class ContractCodec {
     /// <summary>SHA-256 of the canonical contract schema.</summary>
     public static ReadOnlySpan<byte> Fingerprint => [
-        0x57, 0x0f, 0x5b, 0x09, 0x07, 0x90, 0x36, 0x95, 0x38, 0x68, 0xd5, 0x79, 0x90, 0x81, 0x7a, 0x54, 0x09, 0xa7, 0xef, 0x38, 0x82, 0x88, 0x24, 0xff, 0xb7, 0x36, 0x72, 0x10, 0x48, 0x1b, 0x4e, 0x77
+        0x96, 0xee, 0x72, 0x89, 0xc2, 0x9c, 0xa1, 0x2f, 0xbc, 0x3d, 0x0c, 0xb4, 0xdd, 0x8a, 0x93, 0xc0, 0xd8, 0x07, 0xe3, 0x39, 0xc4, 0x59, 0xd1, 0x78, 0xfc, 0x33, 0xd7, 0x35, 0xbd, 0x5d, 0xd3, 0x9c
     ];
 
     /// <summary>SHA-256 of the engine contract alone, which an engine binding registers with.</summary>
@@ -22522,6 +22522,17 @@ public static class ContractCodec {
         ArgumentNullException.ThrowIfNull(writer);
         ArgumentNullException.ThrowIfNull(value);
         writer.WriteEnum(TagOf(CloudZoneLoss.All, value));
+    }
+
+    public static ContentBlockKind ReadContentBlockKind(WireReader reader) {
+        ArgumentNullException.ThrowIfNull(reader);
+        return ContentBlockKind.All[reader.ReadEnum(ContentBlockKind.All.Count)];
+    }
+
+    public static void WriteContentBlockKind(WireWriter writer, ContentBlockKind value) {
+        ArgumentNullException.ThrowIfNull(writer);
+        ArgumentNullException.ThrowIfNull(value);
+        writer.WriteEnum(TagOf(ContentBlockKind.All, value));
     }
 
     public static ContentBlockingLevel ReadContentBlockingLevel(WireReader reader) {

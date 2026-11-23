@@ -34,6 +34,14 @@ struct SiteControlsView<ExtensionTiles: View, ExtensionsPage: View>: View {
         // The root takes the height its content needs, and a page the
         // root's, so the popover fits what it shows with nothing left over.
         .fixedSize(horizontal: false, vertical: metrics.keepsRootHeight)
+        // An action being dragged follows the pointer as its tile, over
+        // everything Site Controls show.
+        .coordinateSpace(SiteControlsModel.space)
+        .overlay(alignment: .topLeading) {
+            if let drag = model.drag {
+                SiteControlsDragPreview(model: model, drag: drag)
+            }
+        }
         .animation(CrestMotion.navigation.unlessReducingMotion(reduceMotion), value: model.path)
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Site Controls")

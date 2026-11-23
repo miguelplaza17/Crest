@@ -11487,6 +11487,72 @@ struct CloudZoneLoss: Hashable, Sendable {
     }
 }
 
+/// The members of the core's `ContentBlockKind`. A member's wire tag is its index in `all`.
+struct ContentBlockKind: Hashable, Sendable {
+    let tag: Int
+    var name: String { facts.name }
+    var title: LocalizedStringResource { facts.title }
+    var symbol: String { facts.symbol }
+    private let facts: Facts
+
+    private init(tag: Int, name: String, title: LocalizedStringResource, symbol: String) {
+        self.tag = tag
+        facts = Facts(name: name, title: title, symbol: symbol)
+    }
+
+    static let ads = ContentBlockKind(tag: 0, name: "ads", title: LocalizedStringResource("Ads"), symbol: "megaphone")
+    static let trackers = ContentBlockKind(
+        tag: 1,
+        name: "trackers",
+        title: LocalizedStringResource("Trackers"),
+        symbol: "eye.slash"
+    )
+    static let scams = ContentBlockKind(
+        tag: 2,
+        name: "scams",
+        title: LocalizedStringResource("Scams"),
+        symbol: "exclamationmark.shield"
+    )
+    static let cookieNotices = ContentBlockKind(
+        tag: 3,
+        name: "cookie-notices",
+        title: LocalizedStringResource("Cookie notices"),
+        symbol: "checklist"
+    )
+    static let annoyances = ContentBlockKind(
+        tag: 4,
+        name: "annoyances",
+        title: LocalizedStringResource("Annoyances"),
+        symbol: "bell.slash"
+    )
+
+    static let all: [ContentBlockKind] = [ads, trackers, scams, cookieNotices, annoyances]
+
+    static func named(_ name: String?) -> ContentBlockKind? {
+        all.first { $0.name == name }
+    }
+
+    static func == (lhs: ContentBlockKind, rhs: ContentBlockKind) -> Bool {
+        lhs.tag == rhs.tag
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(tag)
+    }
+
+    private final class Facts: Sendable {
+        let name: String
+        let title: LocalizedStringResource
+        let symbol: String
+
+        init(name: String, title: LocalizedStringResource, symbol: String) {
+            self.name = name
+            self.title = title
+            self.symbol = symbol
+        }
+    }
+}
+
 /// The members of the core's `ContentBlockingLevel`. A member's wire tag is its index in `all`.
 struct ContentBlockingLevel: Hashable, Sendable {
     let tag: Int
@@ -15712,6 +15778,7 @@ struct FilterList: Hashable, Sendable {
     var isDefault: Bool { facts.isDefault }
     var isStrict: Bool { facts.isStrict }
     var languages: [String] { facts.languages }
+    var blocks: [ContentBlockKind] { facts.blocks }
     private let facts: Facts
 
     private init(
@@ -15722,7 +15789,8 @@ struct FilterList: Hashable, Sendable {
         source: String,
         isDefault: Bool,
         isStrict: Bool,
-        languages: [String]
+        languages: [String],
+        blocks: [ContentBlockKind]
     ) {
         self.tag = tag
         facts = Facts(
@@ -15732,7 +15800,8 @@ struct FilterList: Hashable, Sendable {
             source: source,
             isDefault: isDefault,
             isStrict: isStrict,
-            languages: languages
+            languages: languages,
+            blocks: blocks
         )
     }
 
@@ -15744,7 +15813,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://easylist.to/easylist/easylist.txt",
         isDefault: true,
         isStrict: false,
-        languages: []
+        languages: [],
+        blocks: [ContentBlockKind.ads]
     )
     static let easyPrivacy = FilterList(
         tag: 1,
@@ -15754,7 +15824,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://easylist.to/easylist/easyprivacy.txt",
         isDefault: true,
         isStrict: false,
-        languages: []
+        languages: [],
+        blocks: [ContentBlockKind.trackers]
     )
     static let uBlockFilters = FilterList(
         tag: 2,
@@ -15764,7 +15835,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://ublockorigin.github.io/uAssets/filters/filters.min.txt",
         isDefault: true,
         isStrict: false,
-        languages: []
+        languages: [],
+        blocks: [ContentBlockKind.ads]
     )
     static let uBlockPrivacy = FilterList(
         tag: 3,
@@ -15774,7 +15846,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://ublockorigin.github.io/uAssets/filters/privacy.min.txt",
         isDefault: true,
         isStrict: false,
-        languages: []
+        languages: [],
+        blocks: [ContentBlockKind.trackers]
     )
     static let uBlockBadware = FilterList(
         tag: 4,
@@ -15784,7 +15857,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://ublockorigin.github.io/uAssets/filters/badware.min.txt",
         isDefault: true,
         isStrict: false,
-        languages: []
+        languages: [],
+        blocks: [ContentBlockKind.scams]
     )
     static let uBlockQuickFixes = FilterList(
         tag: 5,
@@ -15794,7 +15868,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://ublockorigin.github.io/uAssets/filters/quick-fixes.min.txt",
         isDefault: true,
         isStrict: false,
-        languages: []
+        languages: [],
+        blocks: []
     )
     static let uBlockUnbreak = FilterList(
         tag: 6,
@@ -15804,7 +15879,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://ublockorigin.github.io/uAssets/filters/unbreak.min.txt",
         isDefault: true,
         isStrict: false,
-        languages: []
+        languages: [],
+        blocks: []
     )
     static let adGuardBase = FilterList(
         tag: 7,
@@ -15814,7 +15890,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://filters.adtidy.org/extension/ublock/filters/2_without_easylist.txt",
         isDefault: false,
         isStrict: true,
-        languages: []
+        languages: [],
+        blocks: [ContentBlockKind.ads]
     )
     static let easyListGermany = FilterList(
         tag: 8,
@@ -15824,7 +15901,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://easylist.to/easylistgermany/easylistgermany.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["de"]
+        languages: ["de"],
+        blocks: [ContentBlockKind.ads]
     )
     static let listeFr = FilterList(
         tag: 9,
@@ -15834,7 +15912,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://easylist-downloads.adblockplus.org/liste_fr.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["fr"]
+        languages: ["fr"],
+        blocks: [ContentBlockKind.ads]
     )
     static let easyListItaly = FilterList(
         tag: 10,
@@ -15844,7 +15923,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://easylist-downloads.adblockplus.org/easylistitaly.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["it"]
+        languages: ["it"],
+        blocks: [ContentBlockKind.ads]
     )
     static let easyListDutch = FilterList(
         tag: 11,
@@ -15854,7 +15934,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://easylist-downloads.adblockplus.org/easylistdutch.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["nl"]
+        languages: ["nl"],
+        blocks: [ContentBlockKind.ads]
     )
     static let easyListSpanish = FilterList(
         tag: 12,
@@ -15864,7 +15945,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://easylist-downloads.adblockplus.org/easylistspanish.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["es"]
+        languages: ["es"],
+        blocks: [ContentBlockKind.ads]
     )
     static let easyListPolish = FilterList(
         tag: 13,
@@ -15874,7 +15956,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://easylist-downloads.adblockplus.org/easylistpolish.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["pl"]
+        languages: ["pl"],
+        blocks: [ContentBlockKind.ads]
     )
     static let easyListChina = FilterList(
         tag: 14,
@@ -15884,7 +15967,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://easylist-downloads.adblockplus.org/easylistchina.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["zh"]
+        languages: ["zh"],
+        blocks: [ContentBlockKind.ads]
     )
     static let adGuardJapanese = FilterList(
         tag: 15,
@@ -15894,7 +15978,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://filters.adtidy.org/extension/ublock/filters/7.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["ja"]
+        languages: ["ja"],
+        blocks: [ContentBlockKind.ads]
     )
     static let adGuardRussian = FilterList(
         tag: 16,
@@ -15904,7 +15989,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://filters.adtidy.org/extension/ublock/filters/1.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["ru", "uk", "be"]
+        languages: ["ru", "uk", "be"],
+        blocks: [ContentBlockKind.ads]
     )
     static let adGuardTurkish = FilterList(
         tag: 17,
@@ -15914,7 +16000,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://filters.adtidy.org/extension/ublock/filters/13.txt",
         isDefault: false,
         isStrict: false,
-        languages: ["tr"]
+        languages: ["tr"],
+        blocks: [ContentBlockKind.ads]
     )
     static let easyListCookie = FilterList(
         tag: 18,
@@ -15924,7 +16011,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://secure.fanboy.co.nz/fanboy-cookiemonster_ubo.txt",
         isDefault: false,
         isStrict: true,
-        languages: []
+        languages: [],
+        blocks: [ContentBlockKind.cookieNotices]
     )
     static let adGuardAnnoyances = FilterList(
         tag: 19,
@@ -15934,7 +16022,8 @@ struct FilterList: Hashable, Sendable {
         source: "https://filters.adtidy.org/extension/ublock/filters/14.txt",
         isDefault: false,
         isStrict: true,
-        languages: []
+        languages: [],
+        blocks: [ContentBlockKind.annoyances]
     )
 
     static let all: [FilterList] = [
@@ -15980,6 +16069,7 @@ struct FilterList: Hashable, Sendable {
         let isDefault: Bool
         let isStrict: Bool
         let languages: [String]
+        let blocks: [ContentBlockKind]
 
         init(
             name: String,
@@ -15988,7 +16078,8 @@ struct FilterList: Hashable, Sendable {
             source: String,
             isDefault: Bool,
             isStrict: Bool,
-            languages: [String]
+            languages: [String],
+            blocks: [ContentBlockKind]
         ) {
             self.name = name
             self.title = title
@@ -15997,6 +16088,7 @@ struct FilterList: Hashable, Sendable {
             self.isDefault = isDefault
             self.isStrict = isStrict
             self.languages = languages
+            self.blocks = blocks
         }
     }
 }
