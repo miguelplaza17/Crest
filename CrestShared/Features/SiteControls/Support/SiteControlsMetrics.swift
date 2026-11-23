@@ -9,7 +9,7 @@ struct SiteControlsMetrics {
     static let popover = SiteControlsMetrics(
         width: 320, padding: CrestSpacing.medium, sectionSpacing: 6, faviconSize: 28, actionTileHeight: 46,
         actionGlyphSize: 16, tileSpacing: 6, extensionTileHeight: 34, waitingHeight: 44, toggleHeight: 34,
-        toggleColumns: 2, rowHeight: 32, rowInset: 3, glyphSize: 15, chipHeight: 24, sectionHeight: 16, keepsRootHeight: true,
+        toggleColumns: 2, rowHeight: 32, rowInset: 3, glyphSize: 15, chipHeight: 24, glassIconSize: 28, glassIconGlyphSize: 12, sectionHeight: 16, keepsRootHeight: true,
         sectionFont: CrestTypography.label, titleFont: CrestTypography.label, detailFont: .system(size: 11),
         rowFont: .system(size: 13), valueFont: .system(size: 12), tileFont: .system(size: 11, weight: .medium),
         pageTitleFont: CrestTypography.label)
@@ -18,7 +18,7 @@ struct SiteControlsMetrics {
     static let sheet = SiteControlsMetrics(
         width: nil, padding: 14, sectionSpacing: CrestSpacing.medium, faviconSize: 40, actionTileHeight: 66,
         actionGlyphSize: 21, tileSpacing: CrestSpacing.small, extensionTileHeight: 44, waitingHeight: 58,
-        toggleHeight: 60, toggleColumns: 3, rowHeight: 48, rowInset: 4, glyphSize: 19, chipHeight: 30, sectionHeight: 22,
+        toggleHeight: 60, toggleColumns: 3, rowHeight: 48, rowInset: 4, glyphSize: 19, chipHeight: 30, glassIconSize: 44, glassIconGlyphSize: 17, sectionHeight: 22,
         keepsRootHeight: false, sectionFont: .headline, titleFont: .headline, detailFont: .footnote, rowFont: .body,
         valueFont: .callout, tileFont: .caption.weight(.medium), pageTitleFont: .headline)
 
@@ -42,6 +42,10 @@ struct SiteControlsMetrics {
     let rowInset: CGFloat
     let glyphSize: CGFloat
     let chipHeight: CGFloat
+    /// A round glass button at a page's corner, such as Back or Done, and
+    /// its symbol.
+    let glassIconSize: CGFloat
+    let glassIconGlyphSize: CGFloat
     /// A section label's line, which its text button may stand a little
     /// taller than.
     let sectionHeight: CGFloat

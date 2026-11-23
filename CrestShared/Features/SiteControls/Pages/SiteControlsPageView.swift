@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// A page of Site Controls over the root: Back, the page's title over the
-/// site's host, Edit on a page that edits what it lists, and the page's rows,
+/// site's host on a page about the site, Edit and Done on a page that edits
+/// what it lists, as round glass buttons, and the page's rows,
 /// which scroll within the root's height.
 struct SiteControlsPageView<ExtensionsPage: View>: View {
     let model: SiteControlsModel
@@ -41,39 +42,32 @@ struct SiteControlsPageView<ExtensionsPage: View>: View {
                     .font(metrics.pageTitleFont)
                     .lineLimit(1)
                     .accessibilityAddTraits(.isHeader)
-                if let host = model.host {
+                if page.isAboutSite, let host = model.host {
                     Text(verbatim: host)
                         .font(metrics.detailFont)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                 }
             }
-            .padding(.horizontal, 64)
+            .padding(.horizontal, metrics.glassIconSize + CrestSpacing.medium)
             HStack {
-                Button {
-                    model.back()
-                } label: {
-                    HStack(spacing: 2) {
-                        Image(systemName: "chevron.left")
-                            .fontWeight(.semibold)
-                            .imageScale(.small)
-                        Text("Back")
-                    }
-                }
-                .buttonStyle(SiteControlsTextButtonStyle())
-                .keyboardShortcut(.cancelAction)
-                .accessibilityIdentifier("site-controls-back")
+                SiteControlsGlassIconButton(title: "Back", symbol: "chevron.left") { model.back() }
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("site-controls-back")
                 Spacer()
                 if page.editingTitle != nil {
-                    Button(model.isEditingActions ? "Done" : "Edit") {
+                    SiteControlsGlassIconButton(
+                        title: model.isEditingActions ? "Done" : "Edit",
+                        symbol: model.isEditingActions ? "checkmark" : "pencil",
+                        isProminent: model.isEditingActions
+                    ) {
                         model.isEditingActions.toggle()
                         model.selectedSlot = 0
                     }
-                    .buttonStyle(SiteControlsTextButtonStyle())
                     .accessibilityIdentifier("site-controls-edit-toggle")
                 }
             }
         }
-        .frame(minHeight: 34)
+        .frame(minHeight: metrics.glassIconSize + 4)
     }
 }
