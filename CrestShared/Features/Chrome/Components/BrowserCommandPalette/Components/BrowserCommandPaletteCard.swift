@@ -115,6 +115,7 @@ struct BrowserCommandPaletteCard: View {
                 }
             }
         }
+        .browserCommandPalettePointerTracking(model: model)
     }
 
     private var field: some View {
