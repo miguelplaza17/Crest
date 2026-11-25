@@ -162,6 +162,7 @@ internal static partial class StoredSessionCodec {
             TolerantFlag(value[Key.ShowsRecentTabs]) ?? defaults.ShowsRecentTabs,
             NewTabPosition.Named(TolerantText(value[Key.NewTabPosition])) ?? defaults.NewTabPosition,
             TolerantFlag(value[Key.NewTabsJoinFolder]) ?? defaults.NewTabsJoinFolder,
+            TolerantFlag(value[Key.ConfirmsQuit]) ?? defaults.ConfirmsQuit,
             DecodePalettePreferences(value[Key.Palette]));
     }
 
@@ -184,7 +185,8 @@ internal static partial class StoredSessionCodec {
             [Key.AutomaticallyShowsDeveloperToolbar] = preferences.AutomaticallyShowsDeveloperToolbar,
             [Key.ShowsRecentTabs] = preferences.ShowsRecentTabs,
             [Key.NewTabPosition] = preferences.NewTabPosition.Name,
-            [Key.NewTabsJoinFolder] = preferences.NewTabsJoinFolder
+            [Key.NewTabsJoinFolder] = preferences.NewTabsJoinFolder,
+            [Key.ConfirmsQuit] = preferences.ConfirmsQuit
         };
         if (!preferences.Palette.Equals(PalettePreferences.Default)) value[Key.Palette] = Encode(preferences.Palette);
         return value;

@@ -110,6 +110,12 @@ final class BrowserAppPreferenceStore {
         set { set { $0.newTabsJoinFolder = newValue } }
     }
 
+    /// Whether quitting from the keyboard or the Quit menu item asks first.
+    var confirmsQuit: Bool {
+        get { preferences.confirmsQuit }
+        set { set { $0.confirmsQuit = newValue } }
+    }
+
     /// How the command palette ranks and arranges what it offers.
     var palette: PalettePreferences {
         get { preferences.palette }

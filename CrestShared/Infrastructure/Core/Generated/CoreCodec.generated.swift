@@ -7,7 +7,7 @@ import Foundation
 enum CoreCodec {
     /// SHA-256 of the canonical contract schema. The core refuses any other.
     static let fingerprint: [UInt8] = [
-        0xa8, 0x7e, 0xce, 0xb6, 0x0e, 0xd5, 0x46, 0x43, 0x34, 0x6f, 0x7f, 0x56, 0xea, 0xd9, 0x7f, 0xef, 0x52, 0x37, 0x28, 0x00, 0x15, 0x7c, 0xde, 0xf7, 0x54, 0xd2, 0xb0, 0x0c, 0xce, 0xca, 0x27, 0x88
+        0xd1, 0x3f, 0x45, 0x1b, 0x66, 0x47, 0x00, 0x06, 0x2e, 0xf1, 0xcd, 0x1f, 0x2f, 0xa5, 0x77, 0x46, 0xfc, 0xbf, 0x84, 0x9d, 0xaa, 0x42, 0x1b, 0x0f, 0xe5, 0xd6, 0xd2, 0x24, 0xe1, 0x52, 0x72, 0x68
     ]
     /// SHA-256 of the engine contract alone, which an engine binding registers with.
     static let engineFingerprint: [UInt8] = [
@@ -3424,8 +3424,9 @@ extension AppPreferences {
         let showsRecentTabs = try reader.readBool()
         let newTabPosition = try NewTabPosition(from: &reader)
         let newTabsJoinFolder = try reader.readBool()
+        let confirmsQuit = try reader.readBool()
         let palette = try PalettePreferences(from: &reader)
-        self.init(startup: startup, offersTranslation: offersTranslation, automaticallyTranslates: automaticallyTranslates, translationRules: translationRules, checksSpelling: checksSpelling, automaticallyEntersPictureInPicture: automaticallyEntersPictureInPicture, pinnedTabClose: pinnedTabClose, savedTabClose: savedTabClose, savedTabFaviconReturnsToSavedURL: savedTabFaviconReturnsToSavedURL, unloadedSavedTabsStay: unloadedSavedTabsStay, splitFocusFollowsMouse: splitFocusFollowsMouse, automaticallyShowsDeveloperToolbar: automaticallyShowsDeveloperToolbar, showsRecentTabs: showsRecentTabs, newTabPosition: newTabPosition, newTabsJoinFolder: newTabsJoinFolder, palette: palette)
+        self.init(startup: startup, offersTranslation: offersTranslation, automaticallyTranslates: automaticallyTranslates, translationRules: translationRules, checksSpelling: checksSpelling, automaticallyEntersPictureInPicture: automaticallyEntersPictureInPicture, pinnedTabClose: pinnedTabClose, savedTabClose: savedTabClose, savedTabFaviconReturnsToSavedURL: savedTabFaviconReturnsToSavedURL, unloadedSavedTabsStay: unloadedSavedTabsStay, splitFocusFollowsMouse: splitFocusFollowsMouse, automaticallyShowsDeveloperToolbar: automaticallyShowsDeveloperToolbar, showsRecentTabs: showsRecentTabs, newTabPosition: newTabPosition, newTabsJoinFolder: newTabsJoinFolder, confirmsQuit: confirmsQuit, palette: palette)
     }
 
     func encode(into writer: inout WireWriter) {
@@ -3447,6 +3448,7 @@ extension AppPreferences {
         writer.writeBool(showsRecentTabs)
         newTabPosition.encode(into: &writer)
         writer.writeBool(newTabsJoinFolder)
+        writer.writeBool(confirmsQuit)
         palette.encode(into: &writer)
     }
 }

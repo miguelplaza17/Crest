@@ -62,6 +62,11 @@ struct BrowserGeneralSettingsPane: View {
                     CrestFormFootnote("Spelling changes apply after Crest restarts.")
                 }
                 BrowserDeveloperToolbarSettingsSection()
+
+                Section("Quitting") {
+                    Toggle("Ask before quitting", isOn: $appPreferences.confirmsQuit)
+                        .accessibilityIdentifier("ask-before-quitting")
+                }
             #endif
         }
     }

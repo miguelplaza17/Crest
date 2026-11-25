@@ -109,6 +109,7 @@ internal static partial class StoredSessionCodec {
         public const string NativeContent = "nativeContent";
         public const string NewTabPosition = "newTabPosition";
         public const string NewTabsJoinFolder = "newTabsJoinFolder";
+        public const string ConfirmsQuit = "confirmsQuit";
         public const string OffersTranslation = "offersTranslation";
         public const string OperationId = "operationID";
         public const string OrderAnchorTabId = "orderAnchorTabID";
